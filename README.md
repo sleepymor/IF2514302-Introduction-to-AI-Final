@@ -50,6 +50,7 @@ This project draws inspiration from both academic AI problems and tactical game 
 ### 1. Minimax Algorithm
 ### 2. Alpha-Beta Pruning
 ### 3. Monte Carlo Search
+### 4. A*
 # Libraries and Tools[Can Change Later in Development]
 ### 1. PyGame
 ### 2. Pandas
