@@ -63,7 +63,7 @@ This project draws inspiration from both academic AI problems and tactical game 
 | 1  | **Rizal** | Create the environment grid (walls, traps, goal, adjustable size). Develop the main loop for all algorithms. Work on MCTS, Alpha-Beta, and Minimax. Handle final integration and testing. |
 | 2  | **Jayen**        | Develop the main loop for all algorithms. Implement the **MCTS** algorithm. Integrate the implemented algorithm into the main system.                                                     |
 | 3  | **Ibnu**         | Develop parts of **MCTS** (tree structure and simulation). Integrate the implemented algorithm into the main system.                                                                      |
-| 4  | **Wisnu**        | Implement the **Alpha-Beta Pruning** algorithm. Integrate the implemented algorithm into the main system.                                                                                 |
-| 5  | **Dylan**        | Implement the **Minimax** algorithm. Integrate the implemented algorithm into the main system.                                                                                            |
+| 4  | **Wisnu**        | Implement the **Alpha-Beta Pruning** and **Minimax** algorithm. Integrate the implemented algorithm into the main system.                                                                                 |
+| 5  | **Dylan**        | Implement the **Alpha-Beta Pruning** and **Minimax** algorithm. Integrate the implemented algorithm into the main system.                                                                                            |
 
 
