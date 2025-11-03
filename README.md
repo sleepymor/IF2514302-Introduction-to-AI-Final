@@ -1,4 +1,4 @@
-# IF2514302-Introduction-to-AI-Final-Project (Designing Tactical Evade and Reach Problem for Adversarial Search)
+# IF2514302-Introduction-to-AI-Final-Project (Designing Tactical Evade and Reach Problem for A* Algorithm Adversarial Search)
 # Concept and Idea
 
 ### 1. Problem Overview
