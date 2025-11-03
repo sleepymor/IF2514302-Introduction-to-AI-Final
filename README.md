@@ -3,7 +3,7 @@
 
 ### 1. Problem Overview
 
-This project focused  on designing AI agent capable of pathfinding in Adversarial Environment . AI goals it find the fastest and safest path to exit the Sequence while minimizing total cost and avoiding obstacle.
+This project focused  on designing AI agent capable of pathfinding in Dynamic Environment . AI goals it find the fastest and safest path to exit the Sequence while minimizing total cost and avoiding obstacle.
 Unlike standard deterministic pathfinding problems (such as A* or Dijkstra), this environments operates in a stochastic and adversarial setting, where environmental conditions and agent interactions change over time.  
 At every step, both the player (AI) and the enemy take turns moving within the set Environment. The player must plan optimal paths while considering not only the static layout (walls and traps) but also the unpredictable movement of enemies who actively pursue the player.
 ### 2. Core Concept
@@ -56,7 +56,6 @@ This project draws inspiration from both academic AI problems and tactical game 
 ### 2. Pandas
 ### 3. MathPlotLib
 ### 4. NumPy
-### 5. Google Collabs
 # Team Role
 | No | Name             | Role / Task Description                                                                                                                                                                   |
 | -- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
