@@ -1,4 +1,5 @@
 import math
+import random
 from algorithm.astar.astar import AStar
 from environment.environment import TacticalEnvironment
 
@@ -20,10 +21,16 @@ class MCTSNode:
     self.parent = parent
     self.action = action
     self.children = []
-    self.visits = 0
+    self.visits = 0 
     self.wins = 0 
 
-    self.untried_actions = list(self.get_legal_action())
+    # Ambil daftar aksi yang legal
+    actions_list = list(self.get_legal_action())
+    
+    # ACAK URUTANNYA SEBELUM DISIMPAN
+    random.shuffle(actions_list) 
+    
+    self.untried_actions = actions_list
 
   def _get_legal_actions(self):
     """

@@ -3,11 +3,15 @@ from agents.enemy import EnemyAgent
 from agents.player import PlayerAgent
 from utils.logger import Logger
 import pygame
+import random
 
 
 def main():
     pygame.init()
     env = TacticalEnvironment(width=15, height=10, seed=32)
+    
+    random.seed(None)
+    
     screen = pygame.display.set_mode((env.width * 40, env.height * 40))
     clock = pygame.time.Clock()
 
@@ -40,7 +44,7 @@ def main():
         env.draw(screen)
         pygame.display.flip()
 
-        clock.tick(15)
+        clock.tick(5)
 
     pygame.quit()
 

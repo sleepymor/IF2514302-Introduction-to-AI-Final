@@ -89,7 +89,7 @@ class MCTS:
         if not legal:
           break
 
-        action = random.choice(list(legal))
+        action = self._heuristic_rollout_policy(state, legal)
         state.step(action, simulate=True)
 
       elif state.turn == "enemy":
@@ -97,6 +97,42 @@ class MCTS:
         state.step(enemy_action, simulate=True)
     
     return self.rollout_reward(state)
+  
+  def _heuristic_rollout_policy(self, state, legal_moves):
+    """
+    Memilih gerakan 'ringan' yang cerdas, bukan acak.
+    Tujuannya: 1. Mendekati Goal, 2. Menjauhi Musuh.
+    """
+    player_pos = tuple(state.player_pos)
+    enemy_pos = tuple(state.enemy_pos)
+    goal_pos = state.goal
+
+    best_move = None
+    best_score = -float('inf') # Kita ingin memaksimalkan skor
+
+    for move in legal_moves:
+        # Hitung 'skor' untuk setiap gerakan yang mungkin
+        
+        # 1. Seberapa dekat ke goal? (Kita ingin ini sekecil mungkin)
+        dist_goal = abs(move[0] - goal_pos[0]) + abs(move[1] - goal_pos[1])
+        
+        # 2. Seberapa jauh dari musuh? (Kita ingin ini sebesar mungkin)
+        dist_enemy = abs(move[0] - enemy_pos[0]) + abs(move[1] - enemy_pos[1])
+
+        # Bobot: Kita anggap menjauhi musuh 2x lebih penting daripada mendekati goal
+        # (Angka 2.0 ini bisa di-tuning oleh Ibnu!)
+        score = (dist_enemy * 1.0) - (dist_goal * 2.0)
+
+        if score > best_score:
+            best_score = score
+            best_move = move
+
+    # Jika karena alasan tertentu tidak ada gerakan terbaik (misal semua skor sama)
+    # kita kembali ke gerakan acak untuk menghindari error.
+    if best_move is None:
+        return random.choice(legal_moves)
+        
+    return best_move
   
   def enemy_policy(self, state):
     a_star = AStar(env=state)
@@ -145,8 +181,8 @@ class MCTS:
     dist_enemy = abs(player_position[0] - enemy_position[0]) + abs(player_position[1] - enemy_position[1])
 
     score = (
-        -0.01 * dist_goal +   # semakin dekat goal semakin bagus
-        +0.05 * dist_enemy    # semakin jauh dari musuh semakin bagus
+        -0.05 * dist_goal +   # semakin dekat goal semakin bagus
+        +0.01 * dist_enemy    # semakin jauh dari musuh semakin bagus
     )
     return score
 

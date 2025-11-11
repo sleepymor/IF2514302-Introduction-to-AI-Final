@@ -19,7 +19,7 @@ class PlayerAgent:
         state_copy = self.env.clone()
 
         # mcts search
-        mcts = MCTS(iterations=3000, exploration_constant=2000, max_sim_depth=65)
+        mcts = MCTS(iterations=300, exploration_constant=2000, max_sim_depth=65)
         best_move = mcts.search(state_copy)
 
         print("[DEBUG] Chosen move by MCTS:", best_move)
