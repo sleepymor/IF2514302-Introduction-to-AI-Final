@@ -7,7 +7,7 @@ import pygame
 
 def main():
     pygame.init()
-    env = TacticalEnvironment(width=30, height=10, seed=42)
+    env = TacticalEnvironment(width=15, height=10, seed=32)
     screen = pygame.display.set_mode((env.width * 40, env.height * 40))
     clock = pygame.time.Clock()
 
@@ -26,13 +26,13 @@ def main():
 
         if env.turn == "player":
             action_x, action_y = playerAgent.action()
-            # env.step((action_x, action_y))
-            log.info("Player moved!")
+            env.step((action_x, action_y))
+            # log.info("Player moved
 
         elif env.turn == "enemy":
             action_x, action_y = enemyAgent.action()
-            # env.step((action_x, action_y))
-            log.info("Enemy moved!")
+            env.step((action_x, action_y))
+            # log.info("Enemy moved!")
                 
             
 
@@ -40,7 +40,7 @@ def main():
         env.draw(screen)
         pygame.display.flip()
 
-        clock.tick(30)
+        clock.tick(15)
 
     pygame.quit()
 

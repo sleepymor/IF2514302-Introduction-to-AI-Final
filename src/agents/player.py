@@ -19,6 +19,13 @@ class PlayerAgent:
         state_copy = self.env.clone()
 
         # mcts search
-        mcts = MCTS(iterations=1000, exploration_constant=2, max_sim_depth=100)
+        mcts = MCTS(iterations=3000, exploration_constant=2000, max_sim_depth=65)
         best_move = mcts.search(state_copy)
+
+        print("[DEBUG] Chosen move by MCTS:", best_move)
+        print("[DEBUG] Real player_pos:", tuple(self.env.player_pos))
+        print("[DEBUG] Real enemy_pos:", tuple(self.env.enemy_pos))
+        print("[DEBUG] Is chosen move in real move_range?:", best_move in self.env.get_move_range(self.env.player_pos))
+
+
         return best_move     
