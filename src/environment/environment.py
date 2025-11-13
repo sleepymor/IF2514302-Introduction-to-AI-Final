@@ -154,7 +154,7 @@ class TacticalEnvironment:
           # if self.in_bounds(nx, ny) and euclidean_dist <= move_range and not self.is_blocked(nx, ny):
           #   tiles.add((nx, ny))
 
-              
+      tiles.discard(tuple(pos))
       return tiles
 
     # def get_move_range(self, pos, move_range=3):
@@ -298,7 +298,7 @@ class TacticalEnvironment:
       if unit == 'player':
           return self.get_move_range(self.player_pos, move_range=3)
       elif unit == 'enemy':
-          return self.get_move_range(self.enemy_pos, move_range=2)
+          return self.get_move_range(self.enemy_pos, move_range=3)
       
       return set()
 
@@ -372,20 +372,17 @@ class TacticalEnvironment:
         Returns:
           TacticalEnvironment: Independent copy of current state
       """
-      # Save references to unpickleable pygame objects
-      temp_textures = self.textures
-      temp_font = self.coordinate_font
-      
-      # Temporarily set to None so deepcopy doesn't fail
+      tmp_tex = self.textures
+      tmp_font = self.coordinate_font
       self.textures = None
       self.coordinate_font = None
       
-      try:
-          # Perform deep copy of game state
-          cloned = copy.deepcopy(self)
-      finally:
-          # Always restore original references (even if deepcopy fails)
-          self.textures = temp_textures
-          self.coordinate_font = temp_font
-      
+      cloned = copy.deepcopy(self)
+
+      self.textures = tmp_tex
+      self.coordinate_font = tmp_font
+      cloned.textures = tmp_tex
+      cloned.coordinate_font = tmp_font
+
+       
       return cloned

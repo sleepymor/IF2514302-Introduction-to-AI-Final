@@ -1,4 +1,5 @@
 import math
+import random
 from algorithm.astar.astar import AStar
 from environment.environment import TacticalEnvironment
 
@@ -23,7 +24,10 @@ class MCTSNode:
     self.visits = 0
     self.wins = 0 
 
-    self.untried_actions = list(self.get_legal_action())
+    action_list = list(self._get_legal_actions())
+
+    random.shuffle(action_list)
+    self.untried_actions = action_list
 
   def _get_legal_actions(self):
     """
@@ -37,7 +41,6 @@ class MCTSNode:
 
   def add_child(self, child_node):
     self.children.append(child_node)
-
     if child_node.action in self.untried_actions:
       self.untried_actions.remove(child_node.action)
   
@@ -50,7 +53,7 @@ class MCTSNode:
       return float("inf")
     
     if self.parent is None:
-      return float("-inf")
+      return self.wins / (self.visits + 1)
     
     
     exploitation = self.wins / self.visits
@@ -69,20 +72,8 @@ class MCTSNode:
     """
       Check if state is terminal (win/lose)
     """
-    player_position = tuple(self.state.player_pos)
-    enemy_position = tuple(self.state.enemy_pos)
-
-    # Win condition
-    if player_position == self.state.goal:
-      return True
-
-    # Lose condition
-    if player_position == enemy_position:
-      return True
-    if player_position in self.state.traps:
-      return True
-    
-    return False
+    is_term, _ = self.state.is_terminal()
+    return is_term
   
   def get_result(self):
     """
@@ -108,36 +99,6 @@ class MCTSNode:
     
     # Small bonus/penalty based on distance
     return 0.1 * (1.0 / (goal_dist + 1) - 0.5 / (enemy_dist + 1))
-
-  def get_legal_action(self): 
-    """
-      Get all legal moves from current state
-    """
-    if self.state.turn == 'player': 
-      moves = self.state.get_move_range(self.state.player_pos)
-      return list(moves)
-    elif self.state.turn == 'enemy':
-      a_star = AStar(env=self.state)
-
-      start = tuple(self.state.enemy_pos)
-      goal = tuple(self.state.player_pos)
-
-      path = a_star.search(start, goal)
-
-      if path is None or len(path) <= 1:
-          return start
-      
-      path = path[1:]
-
-      index = min(2, len(path) - 1)
-
-      next_tile = path[index]
-
-      # If enemy moves more than one tile per turn, select accordingly (indexing)
-      # but env.enemy has move_range 3 in your EnemyAgent, adapt if necessary
-      return next_tile
-    
-    return []
 
   def is_fully_expanded(self):
     """
