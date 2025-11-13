@@ -1,4 +1,3 @@
 .vscode
 .venv
-src/algorithm/mcts/__pycache__/MCTS.cpython-310.pyc
-src/algorithm/mcts/__pycache__/MCTSNode.cpython-310.pyc
+src/algorithm/mcts/__pycache__/
