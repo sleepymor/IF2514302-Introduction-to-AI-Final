@@ -34,5 +34,7 @@ def generate_environment(width, height, num_walls, num_traps, seed=None):
         if (ex, ey) not in walls and (ex, ey) != tuple(player_pos) and (ex, ey) != goal:
             enemy_pos = [ex, ey]
             break
+        
+    random.seed(None)
 
     return grid, player_pos, enemy_pos, goal, walls, traps

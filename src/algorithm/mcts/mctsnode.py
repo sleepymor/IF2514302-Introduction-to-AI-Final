@@ -21,7 +21,7 @@ class MCTSNode:
     self.parent = parent
     self.action = action
     self.children = []
-    self.visits = 0
+    self.visits = 0 
     self.wins = 0 
 
     action_list = list(self._get_legal_actions())

@@ -2,6 +2,7 @@
 import os
 import copy
 import pygame
+import random
 from collections import deque
 from environment.generator import generate_environment
 
@@ -100,6 +101,9 @@ class TacticalEnvironment:
 
       self._cached_player_moves = None
       self._cached_enemy_moves = None
+      
+      if self.seed is not None:
+          random.seed(None)
 
     def in_bounds(self, x, y):
       """
@@ -372,17 +376,25 @@ class TacticalEnvironment:
         Returns:
           TacticalEnvironment: Independent copy of current state
       """
-      tmp_tex = self.textures
-      tmp_font = self.coordinate_font
-      self.textures = None
-      self.coordinate_font = None
+      # 1. Buat 'shallow copy'. Ini sangat cepat.
+      # Objek Pygame (textures, font) dan data statis (walls, grid)
+      # tidak akan di-deepcopy, hanya referensinya yang disalin.
+      cloned = copy.copy(self)
+
+      # 2. Duplikasi data dinamis secara eksplisit.
+      # 'player_pos' dan 'enemy_pos' adalah list, jadi kita
+      # harus membuat salinan baru (menggunakan list()) agar
+      # klon ini tidak mengubah posisi di state aslinya.
+      cloned.player_pos = list(self.player_pos)
+      cloned.enemy_pos = list(self.enemy_pos)
       
-      cloned = copy.deepcopy(self)
+      # 3. Hapus cache di klon
+      # Memastikan klon yang baru tidak menggunakan cache dari state sebelumnya.
+      cloned._cached_player_moves = None
+      cloned._cached_enemy_moves = None
 
-      self.textures = tmp_tex
-      self.coordinate_font = tmp_font
-      cloned.textures = tmp_tex
-      cloned.coordinate_font = tmp_font
+      # 'self.turn' (string) dan 'self.goal' (tuple)
+      # tidak perlu disalin secara eksplisit, tapi ini aman.
+      cloned.turn = self.turn
 
-       
       return cloned

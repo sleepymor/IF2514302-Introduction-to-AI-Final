@@ -188,9 +188,8 @@ class MCTS:
     dist_enemy = abs(player_position[0] - enemy_position[0]) + abs(player_position[1] - enemy_position[1])
 
     score = (
-        -0.1 * dist_goal +   # closer to the goal is better
-        +0.03 * dist_enemy -   # farther from the enemy is slightly better
-        0.02
+        -0.05 * dist_goal +   # semakin dekat goal semakin bagus
+        +0.01 * dist_enemy    # semakin jauh dari musuh semakin bagus
     )
     return score
 
