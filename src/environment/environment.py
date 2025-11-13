@@ -158,7 +158,7 @@ class TacticalEnvironment:
           # if self.in_bounds(nx, ny) and euclidean_dist <= move_range and not self.is_blocked(nx, ny):
           #   tiles.add((nx, ny))
 
-              
+      tiles.discard(tuple(pos))
       return tiles
 
     # def get_move_range(self, pos, move_range=3):
@@ -302,7 +302,7 @@ class TacticalEnvironment:
       if unit == 'player':
           return self.get_move_range(self.player_pos, move_range=3)
       elif unit == 'enemy':
-          return self.get_move_range(self.enemy_pos, move_range=2)
+          return self.get_move_range(self.enemy_pos, move_range=3)
       
       return set()
 

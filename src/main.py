@@ -18,7 +18,6 @@ def main():
     log = Logger("game")
 
     playerAgent = PlayerAgent(env)
-    # playerAgent.action()
     enemyAgent = EnemyAgent(env)
 
     running = True
@@ -28,6 +27,7 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
 
+        
         if env.turn == "player":
             action_x, action_y = playerAgent.action()
             env.step((action_x, action_y))
