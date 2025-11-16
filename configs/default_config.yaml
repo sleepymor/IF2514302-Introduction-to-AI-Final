@@ -1,0 +1,14 @@
+environment:
+  width: 30
+  height: 10
+  num_walls: 10
+  num_traps: 5
+  seed: 42
+  use_assets: False
+  tile_dir: "asstes/tiles"
+  char_dir: "assets/characters"
+
+mcts:
+  iterations: 100
+  exploration_constant: 1.4
+  max_sim_depth: 50
