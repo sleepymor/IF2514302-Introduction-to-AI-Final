@@ -1,6 +1,8 @@
 import random
 import math
-
+"""
+Generate Tactical Grid-based Environment  
+"""
 def generate_environment(width, height, num_walls, num_traps, seed=None):
     if seed is not None:
         random.seed(seed)
