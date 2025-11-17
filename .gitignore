@@ -1,3 +1,6 @@
 .vscode
 .venv
 src/algorithm/mcts/__pycache__/
+src/agents/__pycache__/
+src/environment/__pycache__/
+src/utils/__pycache__/
