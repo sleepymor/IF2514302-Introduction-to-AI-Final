@@ -32,7 +32,7 @@ class MCTS:
 
     best_child = max(root.children, key=lambda c: c.wins / c.visits)
 
-    log.info(f"Best action: {best_child.action}, visits: {best_child.visits} win rate: {best_child.wins/best_child.visits:.2%}")
+    log.info(f"Best action: {best_child.action}, visits: {best_child.visits} win rate: {abs(best_child.wins/best_child.visits):.2f}")
 
     return best_child.action
 

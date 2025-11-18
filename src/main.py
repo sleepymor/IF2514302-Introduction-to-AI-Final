@@ -44,7 +44,7 @@ def main():
         env.draw(screen)
         pygame.display.flip()
 
-        clock.tick(5        )
+        clock.tick(2)
 
     pygame.quit()
 
