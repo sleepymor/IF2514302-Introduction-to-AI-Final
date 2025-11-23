@@ -1,7 +1,14 @@
 import random
 import math
 """
-Generate Tactical Grid-based Environment  
+Generate Tactical Grid-based Environment
+1. Use Random Seed if one not Picked
+2. Set Player Pos [0,0]
+3. Get Height and Width
+4. Setting Up Walls
+5. Setting Up Traps
+6. Setting Up Goals 
+7. Setting Up Enemy Position
 """
 def generate_environment(width, height, num_walls, num_traps, seed=None):
     if seed is not None:
