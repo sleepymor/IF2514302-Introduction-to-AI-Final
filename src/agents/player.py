@@ -8,6 +8,8 @@ from utils.logger import Logger
 
 class PlayerAgent:
     
+    # PERBAIKANNYA ADA DISINI:
+    # Perhatikan bagaimana __init__ sekarang menerima "algoritma MTCS"
     def __init__(self, env: TacticalEnvironment, algorithm="MCTS"):
         self.env = env
         self.algorithm_choice = algorithm
