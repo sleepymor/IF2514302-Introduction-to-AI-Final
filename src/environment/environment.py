@@ -131,69 +131,69 @@ class TacticalEnvironment:
       """
       return (x, y) in self.walls
 
-    def get_move_range(self, pos, move_range=3):
-      """
-      Calculate all valid tiles within movement range using Manhattan distance.
-      
-      Args:
-          pos: Current position as (x, y) tuple
-          move_range: Maximum movement distance (default 3 for player, 2 for enemy)
-          
-      Returns:
-          set: Set of (x, y) tuples representing reachable tiles
-      """
-      x, y = pos
-      tiles = set()
-
-      for dx in range(-move_range, move_range + 1):
-        for dy in range(-move_range, move_range + 1):
-          nx, ny = x + dx, y + dy
-          manhattan_dist = abs(dx) + abs(dy)
-              
-          if self.in_bounds(nx, ny) and manhattan_dist <= move_range and not self.is_blocked(nx, ny):
-            tiles.add((nx, ny))
-
-          # euclidean_dist = math.dist((0, 0), (dx, dy))
-
-          # if self.in_bounds(nx, ny) and euclidean_dist <= move_range and not self.is_blocked(nx, ny):
-          #   tiles.add((nx, ny))
-
-      tiles.discard(tuple(pos))
-      return tiles
-
     # def get_move_range(self, pos, move_range=3):
+    #   """
+    #   Calculate all valid tiles within movement range using Manhattan distance.
+      
+    #   Args:
+    #       pos: Current position as (x, y) tuple
+    #       move_range: Maximum movement distance (default 3 for player, 2 for enemy)
+          
+    #   Returns:
+    #       set: Set of (x, y) tuples representing reachable tiles
+    #   """
+    #   x, y = pos
+    #   tiles = set()
+
+    #   for dx in range(-move_range, move_range + 1):
+    #     for dy in range(-move_range, move_range + 1):
+    #       nx, ny = x + dx, y + dy
+    #       manhattan_dist = abs(dx) + abs(dy)
+              
+    #       if self.in_bounds(nx, ny) and manhattan_dist <= move_range and not self.is_blocked(nx, ny):
+    #         tiles.add((nx, ny))
+
+    #       # euclidean_dist = math.dist((0, 0), (dx, dy))
+
+    #       # if self.in_bounds(nx, ny) and euclidean_dist <= move_range and not self.is_blocked(nx, ny):
+    #       #   tiles.add((nx, ny))
+
+    #   tiles.discard(tuple(pos))
+    #   return tiles
+
+    def get_move_range(self, pos, move_range=3):
       
 
-    #   queue = deque([(pos, 0)])
-    #   visited = {tuple(pos)}
+      queue = deque([(pos, 0)])
+      visited = {tuple(pos)}
 
-    #   reachable = set()
+      reachable = set()
 
-    #   while queue:
-    #     (x, y), dist = queue.popleft()
+      while queue:
+        (x, y), dist = queue.popleft()
 
-    #     if dist > move_range:
-    #       continue
+        if dist > move_range:
+          continue
 
-    #     reachable.add((x, y))
+        reachable.add((x, y))
 
-    #     for dx, dy in [(1,0),(-1,0),(0,1),(0,-1)]:
-    #       nx, ny = x + dx, y + dy
+        for dx, dy in [(1,0),(-1,0),(0,1),(0,-1)]:
+          nx, ny = x + dx, y + dy
 
-    #       if not self.in_bounds(nx, ny):
-    #           continue
+          if not self.in_bounds(nx, ny):
+              continue
 
-    #       if (nx, ny) in visited:
-    #           continue
+          if (nx, ny) in visited:
+              continue
 
-    #       if self.is_blocked(nx, ny):
-    #           continue
+          if self.is_blocked(nx, ny):
+              continue
 
-    #       visited.add((nx, ny))
-    #       queue.append(((nx, ny), dist + 1))
+          visited.add((nx, ny))
+          queue.append(((nx, ny), dist + 1))
 
-    #   reachable.remove(tuple(pos))  # remove origin if you want
-    #   return reachable
+      reachable.remove(tuple(pos))  # remove origin if you want
+      return reachable
 
 
     def move_unit(self, pos, target):
