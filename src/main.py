@@ -7,6 +7,11 @@ import random
 
 
 def main():
+    """
+    Tactical Grid-base Game Loop
+
+    This function initialize the game enviroment, loads agents, handles
+    """
     pygame.init()
     env = TacticalEnvironment(width=15, height=10, seed=32)
     
@@ -44,7 +49,7 @@ def main():
         env.draw(screen)
         pygame.display.flip()
 
-        clock.tick(5        )
+        clock.tick(1)
 
     pygame.quit()
 
