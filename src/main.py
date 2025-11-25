@@ -22,7 +22,11 @@ def main():
 
     log = Logger("game")
 
-    playerAgent = PlayerAgent(env)
+    # --- PERUBAHAN DI SINI ---
+    # Kita tambahkan parameter algorithm="ALPHABETA"  
+    playerAgent = PlayerAgent(env, algorithm="ALPHABETA")
+    # -------------------------
+    
     enemyAgent = EnemyAgent(env)
 
     running = True
