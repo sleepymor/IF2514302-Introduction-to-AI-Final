@@ -1,54 +1,59 @@
 from environment.environment import TacticalEnvironment
-import math
 
-# --- Skor Definitif ---
-# Gunakan angka yang sangat besar untuk menang/kalah
-# agar nilainya selalu mengalahkan skor heuristik.
-WIN_SCORE = 1_000_000
-LOSE_SCORE = -1_000_000
-
-def heuristic_evaluate(state: TacticalEnvironment) -> float:
+class AlphaBetaNode:
     """
-    Static evaluation function (heuristic) untuk sebuah game state.
-    Fungsi ini *selalu* mengembalikan skor dari perspektif PLAYER.
-
-    - Skor tinggi = Bagus untuk Player
-    - Skor rendah = Bagus untuk Enemy (Buruk untuk Player)
+    Node Alpha-Beta yang diperbaiki dengan logika 'Repulsion Field'.
+    Player akan mencoba menghindari musuh dari jarak jauh dan mencari jalan aman.
     """
-    player_pos = tuple(state.player_pos)
-    enemy_pos = tuple(state.enemy_pos)
-    goal_pos = state.goal
-
-    # 1. Cek kondisi Terminal (Menang/Kalah)
-    # Ini adalah kondisi paling penting dan harus dievaluasi terlebih dahulu.
-
-    if player_pos == goal_pos:
-        return WIN_SCORE  # Player menang
-
-    if player_pos == enemy_pos or player_pos in state.traps:
-        return LOSE_SCORE  # Player kalah
-
-    # 2. Cek kondisi Non-Terminal (Heuristik)
-    # Jika permainan belum berakhir, kita perkirakan skornya.
-
-    # A. Skor Jarak ke Goal (Player)
-    # Semakin dekat ke goal, semakin tinggi skornya.
-    dist_to_goal = abs(player_pos[0] - goal_pos[0]) + abs(player_pos[1] - goal_pos[1])
-    # (state.width + state.height) adalah jarak terjauh yang mungkin
-    # Kita balik nilainya: (jarak_maks - jarak_sekarang)
-    goal_score = (state.width + state.height - dist_to_goal) * 10  # Bobot: 10
-
-    # B. Skor Jarak ke Musuh (Player)
-    # Semakin jauh dari musuh, semakin tinggi skornya.
-    dist_to_enemy = abs(player_pos[0] - enemy_pos[0]) + abs(player_pos[1] - enemy_pos[1])
     
-    if dist_to_enemy == 0:
-        return LOSE_SCORE # Seharusnya sudah ditangkap di atas, tapi untuk keamanan
+    WIN_SCORE = 1_000_000
+    LOSE_SCORE = -1_000_000
 
-    enemy_score = dist_to_enemy * 5  # Bobot: 5
+    def __init__(self, state: TacticalEnvironment, parent=None, action=None):
+        self.state = state
+        self.parent = parent
+        self.action = action
 
-    # Skor total adalah gabungan dari keduanya
-    # AI akan mencoba memaksimalkan nilai ini.
-    heuristic_score = goal_score + enemy_score
+    def evaluate(self) -> float:
+        player_pos = tuple(self.state.player_pos)
+        enemy_pos = tuple(self.state.enemy_pos)
+        goal_pos = self.state.goal
 
-    return heuristic_score
+        # --- 1. Terminal State Check ---
+        if player_pos == goal_pos:
+            return self.WIN_SCORE
+        if player_pos == enemy_pos or player_pos in self.state.traps:
+            return self.LOSE_SCORE
+
+        score = 0.0
+        
+        # --- 2. Jarak ke Goal (Manhattan Distance) ---
+        dist_to_goal = abs(player_pos[0] - goal_pos[0]) + abs(player_pos[1] - goal_pos[1])
+        
+        # Bobot dikurangi (20) agar Player tidak terlalu 'kaku' ingin garis lurus
+        score -= dist_to_goal * 20 
+
+        # --- 3. Gradasi Bahaya Musuh (Smooth Repulsion) ---
+        dist_to_enemy = abs(player_pos[0] - enemy_pos[0]) + abs(player_pos[1] - enemy_pos[1])
+        
+        # Hindari pembagian dengan nol (jika enemy tepat di sebelah/sama)
+        safe_dist_enemy = max(dist_to_enemy, 0.5)
+        
+        # Logika Medan Tolak-Menolak:
+        # Semakin dekat musuh, nilai minusnya semakin besar secara eksponensial/drastis.
+        # Ini membuat AI merasa 'panas' jika musuh mendekat, meski belum jarak 1.
+        score -= 2000.0 / safe_dist_enemy
+
+        # --- 4. Bonus Mobilitas (Agar tidak terjebak di pojok) ---
+        # AI akan lebih suka posisi yang punya banyak opsi langkah (ruang terbuka)
+        num_legal_moves = len(self.get_legal_actions())
+        score += num_legal_moves * 15
+
+        return score
+
+    def get_legal_actions(self):
+        return self.state.get_valid_actions(unit='current')
+
+    def is_terminal(self):
+        is_term, _ = self.state.is_terminal()
+        return is_term

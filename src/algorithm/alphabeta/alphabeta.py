@@ -1,116 +1,95 @@
-import math
-from environment.environment import TacticalEnvironment
-from algorithm.alphabeta.alphabetanode import heuristic_evaluate # <- Impor heuristik
-from utils.logger import Logger
-
-log = Logger("AlphaBeta")
+from algorithm.alphabeta.alphabetanode import AlphaBetaNode
+from utils.logger import Logger  # <--- TAMBAHAN 1: Import Logger
+import random
 
 class AlphaBetaSearch:
-    
-    def __init__(self, max_depth=6):
-        """
-        Inisialisasi pencarian Alpha-Beta.
-        
-        Args:
-            max_depth (int): Seberapa "jauh" AI akan melihat ke masa depan.
-                             Nilai yang lebih tinggi lebih pintar, tetapi lebih lambat.
-                             Nilai 6-8 biasanya awal yang baik.
-        """
+    def __init__(self, max_depth=3):
         self.max_depth = max_depth
-        log.info(f"AlphaBetaSearch initialized with max_depth={self.max_depth}")
+        self.log = Logger("AlphaBeta") # <--- TAMBAHAN 2: Inisialisasi Logger
 
-    def search(self, initial_state: TacticalEnvironment):
+    def search(self, state):
         """
-        Mencari aksi terbaik dari state saat ini.
-        Ini adalah fungsi utama yang akan Anda panggil dari PlayerAgent.
-
-        Args:
-            initial_state (TacticalEnvironment): Kondisi environment saat ini.
-
-        Returns:
-            tuple: Aksi (x, y) terbaik untuk diambil.
+        Memulai pencarian Alpha-Beta untuk menemukan gerakan terbaik.
         """
+        # Kita mulai sebagai Maximizer (Player)
+        alpha = -float('inf')
+        beta = float('inf')
         
-        # Kita (Player) adalah 'Maximizing Player', kita ingin skor tertinggi.
+        best_val = -float('inf')
         best_action = None
-        best_score = -math.inf
-        alpha = -math.inf
-        beta = math.inf
         
-        legal_actions = list(initial_state.get_valid_actions(unit='current'))
+        legal_actions = list(state.get_valid_actions(unit='current'))
+        
+        if not legal_actions:
+            return None
 
-        # Acak urutan aksi untuk hasil yang lebih bervariasi jika skornya sama
-        # random.shuffle(legal_actions) 
-        
-        # Loop manual di level pertama (root) untuk bisa melacak AKSI terbaik
+        # Iterasi langkah pertama (Root)
         for action in legal_actions:
-            # 1. Buat state baru hasil dari aksi
-            new_state = initial_state.clone()
-            new_state.step(action, simulate=True)
+            # Clone state dan terapkan langkah
+            next_state = state.clone()
+            next_state.step(action)
             
-            # 2. Panggil _alphabeta untuk state baru tersebut.
-            #    Giliran berikutnya adalah 'Minimizing Player' (Musuh).
-            score = self._alphabeta(new_state, self.max_depth - 1, alpha, beta, False)
+            # Panggil min_value
+            val = self.min_value(next_state, alpha, beta, 1)
             
-            log.info(f"Action {action} evaluated with score: {score}")
+            # --- TAMBAHAN 3: Tampilkan Log Skor ---
+            self.log.info(f"Action {action} evaluated -> score: {val}")
+            # --------------------------------------
 
-            # 3. Update skor dan aksi terbaik
-            if score > best_score:
-                best_score = score
+            if val > best_val:
+                best_val = val
                 best_action = action
             
-            # Update alpha di root
-            alpha = max(alpha, best_score)
-                
-        log.info(f"Best action found: {best_action} with score: {best_score}")
+            # Update Alpha (untuk pruning di level root, meski jarang terjadi)
+            alpha = max(alpha, best_val)
+            
+        # Log hasil akhir
+        self.log.info(f"Best action found: {best_action} with score: {best_val}")
+            
         return best_action
 
-    def _alphabeta(self, current_state: TacticalEnvironment, depth: int, 
-                   alpha: float, beta: float, is_maximizing_player: bool):
-        """
-        Fungsi rekursif inti dari Alpha-Beta Pruning.
-        """
+    def max_value(self, state, alpha, beta, depth):
+        node = AlphaBetaNode(state)
         
-        is_term, _ = current_state.is_terminal()
-        
-        # --- BASE CASE ---
-        # Jika kita sudah mencapai kedalaman maksimum atau permainan berakhir
-        if depth == 0 or is_term:
-            # Kembalikan evaluasi statis dari state ini
-            return heuristic_evaluate(current_state)
+        if depth == self.max_depth or node.is_terminal():
+            return node.evaluate()
 
-        # --- RECURSIVE CASE ---
+        v = -float('inf')
+        legal_actions = list(state.get_valid_actions(unit='current'))
 
-        # 2. Maximizing Player (Giliran PLAYER)
-        if is_maximizing_player:
-            value = -math.inf
-            legal_actions = list(current_state.get_valid_actions(unit='current'))
+        for action in legal_actions:
+            next_state = state.clone()
+            next_state.step(action)
             
-            for action in legal_actions:
-                new_state = current_state.clone()
-                new_state.step(action, simulate=True)
-                
-                # Panggil rekursif untuk giliran Minimizing Player
-                value = max(value, self._alphabeta(new_state, depth - 1, alpha, beta, False))
-                
-                alpha = max(alpha, value)
-                if alpha >= beta:
-                    break  # *** Beta Cutoff (Pruning) ***
-            return value
+            v = max(v, self.min_value(next_state, alpha, beta, depth + 1))
+            
+            if v >= beta:
+                # Optional: Log jika terjadi pruning (bisa membuat terminal penuh)
+                # self.log.info(f"Pruning at depth {depth} (Beta Cutoff)")
+                return v 
+            alpha = max(alpha, v)
+            
+        return v
 
-        # 3. Minimizing Player (Giliran ENEMY)
-        else: # (is_minimizing_player)
-            value = math.inf
-            legal_actions = list(current_state.get_valid_actions(unit='current'))
+    def min_value(self, state, alpha, beta, depth):
+        node = AlphaBetaNode(state)
+        
+        if depth == self.max_depth or node.is_terminal():
+            return node.evaluate()
 
-            for action in legal_actions:
-                new_state = current_state.clone()
-                new_state.step(action, simulate=True)
-                
-                # Panggil rekursif untuk giliran Maximizing Player
-                value = min(value, self._alphabeta(new_state, depth - 1, alpha, beta, True))
-                
-                beta = min(beta, value)
-                if alpha >= beta:
-                    break  # *** Alpha Cutoff (Pruning) ***
-            return value
+        v = float('inf')
+        legal_actions = list(state.get_valid_actions(unit='current'))
+
+        for action in legal_actions:
+            next_state = state.clone()
+            next_state.step(action)
+            
+            v = min(v, self.max_value(next_state, alpha, beta, depth + 1))
+            
+            if v <= alpha:
+                # Optional: Log jika terjadi pruning
+                # self.log.info(f"Pruning at depth {depth} (Alpha Cutoff)")
+                return v 
+            beta = min(beta, v)
+            
+        return v

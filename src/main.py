@@ -18,8 +18,8 @@ def main():
     log = Logger("game")
 
     # --- PERUBAHAN DI SINI ---
-    # Kita tambahkan parameter algorithm="ALPHABETA"
-    playerAgent = PlayerAgent(env, algorithm="MINIMAX")
+    # Kita tambahkan parameter algorithm="ALPHABETA"  
+    playerAgent = PlayerAgent(env, algorithm="ALPHABETA")
     # -------------------------
     
     enemyAgent = EnemyAgent(env)
