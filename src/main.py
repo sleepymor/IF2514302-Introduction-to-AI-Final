@@ -24,7 +24,7 @@ def main():
 
     # --- PERUBAHAN DI SINI ---
     # Kita tambahkan parameter algorithm="ALPHABETA"  
-    playerAgent = PlayerAgent(env, algorithm="ALPHABETA")
+    playerAgent = PlayerAgent(env, algorithm="MCTS")
     # -------------------------
     
     enemyAgent = EnemyAgent(env)
@@ -46,6 +46,9 @@ def main():
             action_x, action_y = enemyAgent.action()
             env.step((action_x, action_y))
             # log.info("Enemy moved!")
+            
+        # Di dalam loop main.py atau test_mcts.py
+        print(f"Player: {env.player_pos}, Enemy: {env.enemy_pos}")
                 
             
 
@@ -53,7 +56,7 @@ def main():
         env.draw(screen)
         pygame.display.flip()
 
-        clock.tick(1)
+        clock.tick(10)
 
     pygame.quit()
 
