@@ -180,7 +180,7 @@ class TacticalEnvironment:
     #   tiles.discard(tuple(pos))
     #   return tiles
 
-    def get_move_range(self, pos, move_range=3):
+    def get_move_range(self, pos, move_range=2):
 
         queue = deque([(pos, 0)])
         visited = {tuple(pos)}
@@ -194,6 +194,7 @@ class TacticalEnvironment:
                 continue
 
             reachable.add((x, y))
+            # if not self.is_blocked(x, y):
 
             for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
                 nx, ny = x + dx, y + dy
@@ -204,13 +205,15 @@ class TacticalEnvironment:
                 if (nx, ny) in visited:
                     continue
 
+                # print("CHECK", nx, ny, "Blocked:", self.is_blocked(nx, ny))
                 if self.is_blocked(nx, ny):
                     continue
 
                 visited.add((nx, ny))
                 queue.append(((nx, ny), dist + 1))
 
-        reachable.remove(tuple(pos))  # remove origin if you want
+        # print(f"reachable {reachable}")
+        reachable.discard(tuple(pos))
         return reachable
 
     def move_unit(self, pos, target):
@@ -264,6 +267,7 @@ class TacticalEnvironment:
             # Player action
             if action is not None:
                 move_tiles = self.get_move_range(self.player_pos)
+
                 if action in move_tiles:
                     self.player_pos = self.move_unit(self.player_pos, action)
 
@@ -284,7 +288,7 @@ class TacticalEnvironment:
         elif self.turn == "enemy":
             # Enemy action
             if action is not None:
-                enemy_moves_tiles = self.get_move_range(self.enemy_pos)
+                enemy_moves_tiles = self.get_move_range(self.enemy_pos, move_range=3)
                 if action in enemy_moves_tiles:
                     self.enemy_pos = self.move_unit(self.enemy_pos, action)
 
@@ -301,26 +305,6 @@ class TacticalEnvironment:
 
         if simulate:
             return (False, None)
-
-    def get_valid_actions(self, unit="current"):
-        """
-        Get all valid actions for a unit (useful for AI/MCTS).
-
-        Args:
-            unit: 'current' (current turn), 'player', or 'enemy'
-
-        Returns:
-            set: Set of valid move positions
-        """
-        if unit == "current":
-            unit = self.turn
-
-        if unit == "player":
-            return self.get_move_range(self.player_pos, move_range=3)
-        elif unit == "enemy":
-            return self.get_move_range(self.enemy_pos, move_range=3)
-
-        return set()
 
     def draw(self, screen):
         """
@@ -365,14 +349,14 @@ class TacticalEnvironment:
                         pygame.draw.rect(screen, (80, 255, 120), rect)
 
         # Player movement range
-        for mx, my in self.get_move_range(self.player_pos, move_range=2):
+        for mx, my in self.get_move_range(self.player_pos):
             rect = pygame.Rect(mx * TILE_SIZE, my * TILE_SIZE, TILE_SIZE, TILE_SIZE)
             surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
             surf.fill(MOVE_RANGE_COLOR)
             screen.blit(surf, rect.topleft)
 
         # Enemy movement range
-        for ex, ey in self.get_move_range(self.enemy_pos, move_range=2):
+        for ex, ey in self.get_move_range(self.enemy_pos):
             rect = pygame.Rect(ex * TILE_SIZE, ey * TILE_SIZE, TILE_SIZE, TILE_SIZE)
             surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
             surf.fill(ENEMY_MOVE_RANGE_COLOR)
@@ -431,10 +415,10 @@ class TacticalEnvironment:
         cloned.player_pos = copy.deepcopy(self.player_pos)
         cloned.enemy_pos = copy.deepcopy(self.enemy_pos)
         cloned.goal = copy.deepcopy(self.goal)
-        cloned.walls = copy.deepcopy(self.goal)
+        cloned.walls = copy.deepcopy(self.walls)
         cloned.traps = copy.deepcopy(self.traps)
 
-        cloned.turn = copy.deepcopy(self.turn)
+        cloned.turn = self.turn
         cloned._cached_player_moves = None
         cloned._cached_enemy_moves = None
 

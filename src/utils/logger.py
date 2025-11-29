@@ -21,3 +21,6 @@ class Logger:
 
     def debug(self, message):
         self.logger.debug(message)
+
+    def waring(self, message):
+        self.logger.warning(message)

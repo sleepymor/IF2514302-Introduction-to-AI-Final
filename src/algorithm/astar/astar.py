@@ -65,12 +65,6 @@ class AStar:
 
         return neighbors
 
-    def test(self, pos):
-        node = Node(position=pos)
-        neighbors = self.get_neighbors(node)
-        return neighbors
-        # return [n.position for n in neighbors]
-
     def search(self, start, goal):
         """
         Performs A* search from start to goal in the tactical environment.

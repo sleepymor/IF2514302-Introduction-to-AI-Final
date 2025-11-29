@@ -1,14 +1,14 @@
 from algorithm.alphabeta.alphabetanode import AlphaBetaNode
-from utils.logger import Logger  # <--- TAMBAHAN 1: Import Logger
-import random
+from utils.logger import Logger
+from environment.environment import TacticalEnvironment
 
 
 class AlphaBetaSearch:
     def __init__(self, max_depth=3):
         self.max_depth = max_depth
-        self.log = Logger("AlphaBeta")  # <--- TAMBAHAN 2: Inisialisasi Logger
+        self.log = Logger("AlphaBeta")
 
-    def search(self, state):
+    def search(self, state: TacticalEnvironment):
         """
         Memulai pencarian Alpha-Beta untuk menemukan gerakan terbaik.
         """
@@ -19,12 +19,11 @@ class AlphaBetaSearch:
         best_val = -float("inf")
         best_action = None
 
-        legal_actions = list(state.get_valid_actions(unit="current"))
+        legal_actions = list(state.get_move_range(state.player_pos))
 
         if not legal_actions:
             return None
 
-        # Iterasi langkah pertama (Root)
         for action in legal_actions:
             # Clone state dan terapkan langkah
             next_state = state.clone()
@@ -33,9 +32,7 @@ class AlphaBetaSearch:
             # Panggil min_value
             val = self.min_value(next_state, alpha, beta, 1)
 
-            # --- TAMBAHAN 3: Tampilkan Log Skor ---
             self.log.info(f"Action {action} evaluated -> score: {val}")
-            # --------------------------------------
 
             if val > best_val:
                 best_val = val
@@ -49,14 +46,14 @@ class AlphaBetaSearch:
 
         return best_action
 
-    def max_value(self, state, alpha, beta, depth):
+    def max_value(self, state: TacticalEnvironment, alpha, beta, depth):
         node = AlphaBetaNode(state)
 
         if depth == self.max_depth or node.is_terminal():
             return node.evaluate()
 
         v = -float("inf")
-        legal_actions = list(state.get_valid_actions(unit="current"))
+        legal_actions = list(state.get_move_range(state.player_pos))
 
         for action in legal_actions:
             next_state = state.clone()
@@ -79,7 +76,7 @@ class AlphaBetaSearch:
             return node.evaluate()
 
         v = float("inf")
-        legal_actions = list(state.get_valid_actions(unit="current"))
+        legal_actions = list(state.get_move_range(state.player_pos))
 
         for action in legal_actions:
             next_state = state.clone()

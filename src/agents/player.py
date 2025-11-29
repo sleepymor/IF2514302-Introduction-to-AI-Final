@@ -12,18 +12,22 @@ class PlayerAgent:
         self.algorithm_choice = algorithm
         self.log = Logger("PlayerAgent")
 
-        mcts_iterations = 50
-        mcts_sim_depth = 40
         alphabeta_max_depth = 6
         minimax_max_depth = 4
 
         self.log.info("Initializing MCTS algorithm...")
+        mcts_iterations = 1500
+        mcts_sim_depth = 70
+        exploration_constant = 1.6
+
         self.mcts_search = MCTS(
-            iterations=mcts_iterations, max_sim_depth=mcts_sim_depth
+            iterations=mcts_iterations,
+            max_sim_depth=mcts_sim_depth,
+            exploration_constant=exploration_constant,
         )
 
-        # self.log.info("Initializing AlphaBetaSearch algorithm...")
-        # self.alphabeta_search = AlphaBetaSearch(max_depth=alphabeta_max_depth)
+        self.log.info("Initializing AlphaBetaSearch algorithm...")
+        self.alphabeta_search = AlphaBetaSearch(max_depth=alphabeta_max_depth)
 
         # # --- TAMBAHAN 2: Inisialisasi Minimax ---
         # self.log.info("Initializing MinimaxSearch algorithm...")
@@ -35,15 +39,17 @@ class PlayerAgent:
         # --- Konfirmasi Pilihan Algoritma ---
         if self.algorithm_choice == "MCTS":
             self.log.info(f"--- PlayerAgent using: MCTS ---")
-        # elif self.algorithm_choice == "ALPHABETA":
-        #     self.log.info(f"--- PlayerAgent using: AlphaBeta ---")
+        elif self.algorithm_choice == "ALPHABETA":
+            self.log.info(f"--- PlayerAgent using: AlphaBeta ---")
         # elif self.algorithm_choice == "MINIMAX": # <-- Tambahan Log
         #     self.log.info(f"--- PlayerAgent using: Minimax ---")
         # elif self.algorithm_choice == "MINMAX":
         #     self.log.info(f"--- PlayerAgent using: MinMax (Original) ---")
-        # else:
-        #     self.log.warning(f"Unknown algorithm '{self.algorithm_choice}'. Defaulting to MCTS.")
-        #     self.algorithm_choice = "MCTS"
+        else:
+            self.log.warning(
+                f"Unknown algorithm '{self.algorithm_choice}'. Defaulting to MCTS."
+            )
+            self.algorithm_choice = "MCTS"
 
     def action(self) -> tuple:
         current_state = self.env.clone()
@@ -53,9 +59,9 @@ class PlayerAgent:
             self.log.info("MCTS is thinking...")
             best_action = self.mcts_search.search(current_state)
 
-        # elif self.algorithm_choice == "ALPHABETA":
-        #     self.log.info("AlphaBeta is thinking...")
-        #     best_action = self.alphabeta_search.search(current_state)
+        elif self.algorithm_choice == "ALPHABETA":
+            self.log.info("AlphaBeta is thinking...")
+            best_action = self.alphabeta_search.search(current_state)
 
         # elif self.algorithm_choice == "MINIMAX":
         #     self.log.info("Minimax is thinking...")
@@ -74,5 +80,5 @@ class PlayerAgent:
         #     else:
         #         best_action = self.env.player_pos
 
-        self.log.info(f"Chosen action: {best_action}")
+        # self.log.info(f"Chosen action: {best_action}")
         return best_action

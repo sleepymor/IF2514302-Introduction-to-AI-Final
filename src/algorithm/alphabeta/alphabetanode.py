@@ -7,8 +7,8 @@ class AlphaBetaNode:
     Player akan mencoba menghindari musuh dari jarak jauh dan mencari jalan aman.
     """
 
-    WIN_SCORE = 1_000_000
-    LOSE_SCORE = -1_000_000
+    WIN_SCORE = 1
+    LOSE_SCORE = -1
 
     def __init__(self, state: TacticalEnvironment, parent=None, action=None):
         self.state = state
@@ -51,13 +51,25 @@ class AlphaBetaNode:
 
         # --- 4. Bonus Mobilitas (Agar tidak terjebak di pojok) ---
         # AI akan lebih suka posisi yang punya banyak opsi langkah (ruang terbuka)
-        num_legal_moves = len(self.get_legal_actions())
+        num_legal_moves = len(self._get_legal_actions())
         score += num_legal_moves * 15
 
         return score
 
-    def get_legal_actions(self):
-        return self.state.get_valid_actions(unit="current")
+    def _get_legal_actions(self):
+        """
+        Get all legal actions for the current player.
+
+        Returns:
+            set: Legal move positions for current turn
+        """
+        # Check whose turn it is
+        if self.state.turn == "player":
+            return self.state.get_move_range(self.state.player_pos)
+        elif self.state.turn == "enemy":
+            return self.state.get_move_range(self.state.enemy_pos, move_range=3)
+        else:
+            return set()
 
     def is_terminal(self):
         is_term, _ = self.state.is_terminal()

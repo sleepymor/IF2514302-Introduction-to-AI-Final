@@ -53,6 +53,22 @@ class TestClone(unittest.TestCase):
         self.assertNotEqual(clone.player_pos, original.player_pos)
         self.assertEqual(original.player_pos, original_pos)
 
+    def test_all_attributes_copied(self):
+        """
+        Test that all attributes are properly copied
+        """
+        original = TacticalEnvironment(width=15, height=10, seed=32)
+        clone = original.clone()
+
+        self.assertEqual(clone.width, original.width)
+        self.assertEqual(clone.height, original.height)
+        self.assertEqual(clone.player_pos, original.player_pos)
+        self.assertEqual(clone.enemy_pos, original.enemy_pos)
+        self.assertEqual(clone.goal, original.goal)
+        self.assertEqual(clone.walls, original.walls)  # ← Ini akan fail dengan bug!
+        self.assertEqual(clone.traps, original.traps)
+        self.assertEqual(clone.turn, original.turn)
+
 
 if __name__ == "__main__":
     unittest.main()
