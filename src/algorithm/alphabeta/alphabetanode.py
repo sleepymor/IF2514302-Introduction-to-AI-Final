@@ -1,11 +1,12 @@
 from environment.environment import TacticalEnvironment
 
+
 class AlphaBetaNode:
     """
     Node Alpha-Beta yang diperbaiki dengan logika 'Repulsion Field'.
     Player akan mencoba menghindari musuh dari jarak jauh dan mencari jalan aman.
     """
-    
+
     WIN_SCORE = 1_000_000
     LOSE_SCORE = -1_000_000
 
@@ -26,19 +27,23 @@ class AlphaBetaNode:
             return self.LOSE_SCORE
 
         score = 0.0
-        
+
         # --- 2. Jarak ke Goal (Manhattan Distance) ---
-        dist_to_goal = abs(player_pos[0] - goal_pos[0]) + abs(player_pos[1] - goal_pos[1])
-        
+        dist_to_goal = abs(player_pos[0] - goal_pos[0]) + abs(
+            player_pos[1] - goal_pos[1]
+        )
+
         # Bobot dikurangi (20) agar Player tidak terlalu 'kaku' ingin garis lurus
-        score -= dist_to_goal * 20 
+        score -= dist_to_goal * 20
 
         # --- 3. Gradasi Bahaya Musuh (Smooth Repulsion) ---
-        dist_to_enemy = abs(player_pos[0] - enemy_pos[0]) + abs(player_pos[1] - enemy_pos[1])
-        
+        dist_to_enemy = abs(player_pos[0] - enemy_pos[0]) + abs(
+            player_pos[1] - enemy_pos[1]
+        )
+
         # Hindari pembagian dengan nol (jika enemy tepat di sebelah/sama)
         safe_dist_enemy = max(dist_to_enemy, 0.5)
-        
+
         # Logika Medan Tolak-Menolak:
         # Semakin dekat musuh, nilai minusnya semakin besar secara eksponensial/drastis.
         # Ini membuat AI merasa 'panas' jika musuh mendekat, meski belum jarak 1.
@@ -52,7 +57,7 @@ class AlphaBetaNode:
         return score
 
     def get_legal_actions(self):
-        return self.state.get_valid_actions(unit='current')
+        return self.state.get_valid_actions(unit="current")
 
     def is_terminal(self):
         is_term, _ = self.state.is_terminal()
