@@ -348,7 +348,7 @@ class TacticalEnvironment:
               pygame.draw.rect(screen, (80, 255, 120), rect)
 
       # Player movement range
-      for mx, my in self.get_move_range(self.player_pos):
+      for mx, my in self.get_move_range(self.player_pos, move_range=2):
         rect = pygame.Rect(mx*TILE_SIZE, my*TILE_SIZE, TILE_SIZE, TILE_SIZE)
         surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
         surf.fill(MOVE_RANGE_COLOR)
@@ -376,25 +376,25 @@ class TacticalEnvironment:
         Returns:
           TacticalEnvironment: Independent copy of current state
       """
-      # 1. Buat 'shallow copy'. Ini sangat cepat.
-      # Objek Pygame (textures, font) dan data statis (walls, grid)
-      # tidak akan di-deepcopy, hanya referensinya yang disalin.
-      cloned = copy.copy(self)
 
-      # 2. Duplikasi data dinamis secara eksplisit.
-      # 'player_pos' dan 'enemy_pos' adalah list, jadi kita
-      # harus membuat salinan baru (menggunakan list()) agar
-      # klon ini tidak mengubah posisi di state aslinya.
-      cloned.player_pos = list(self.player_pos)
-      cloned.enemy_pos = list(self.enemy_pos)
-      
-      # 3. Hapus cache di klon
-      # Memastikan klon yang baru tidak menggunakan cache dari state sebelumnya.
+      cloned = TacticalEnvironment(
+         width=self.width,
+         height=self.height,
+         num_walls=self.num_walls,
+         num_traps=self.num_traps,
+         seed=None,
+         use_assets=False
+      )
+
+      cloned.grid = copy.deepcopy(self.grid)
+      cloned.player_pos = copy.deepcopy(self.player_pos)
+      cloned.enemy_pos = copy.deepcopy(self.enemy_pos)
+      cloned.goal = copy.deepcopy(self.goal)
+      cloned.walls = copy.deepcopy(self.goal)
+      cloned.traps = copy.deepcopy(self.traps)
+
+      cloned.turn = copy.deepcopy(self.turn)
       cloned._cached_player_moves = None
       cloned._cached_enemy_moves = None
-
-      # 'self.turn' (string) dan 'self.goal' (tuple)
-      # tidak perlu disalin secara eksplisit, tapi ini aman.
-      cloned.turn = self.turn
 
       return cloned
