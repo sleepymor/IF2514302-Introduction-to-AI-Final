@@ -31,13 +31,37 @@ class MCTSNode:
 
   def _get_legal_actions(self):
     """
-      Get all legal actions for the current player.
-      Delegates to environment's get_valid_actions method.
-      
-      Returns:
-          list: Legal move positions for current turn
+    Hanya ambil aksi yang valid DAN aman dari jangkauan 'Kill Zone' musuh.
     """
-    return self.state.get_valid_actions(unit='current')
+    original_actions = list(self.state.get_valid_actions(unit='current'))
+    
+    # Jika giliran musuh, kembalikan apa adanya (biarkan musuh bergerak bebas)
+    if self.state.turn == 'enemy':
+        return original_actions
+
+    # --- LOGIKA TAMBAHAN: SAFETY FILTER ---
+    safe_actions = []
+    enemy_pos = tuple(self.state.enemy_pos)
+    # Asumsi range musuh adalah 2 (sesuai file enemy.py)
+    ENEMY_RANGE = 2 
+
+    for action in original_actions:
+        # Hitung jarak langkah kita ke posisi musuh SAAT INI
+        dist_to_enemy = abs(action[0] - enemy_pos[0]) + abs(action[1] - enemy_pos[1])
+        
+        # JANGAN izinkan langkah jika jarak <= range musuh.
+        # Artinya musuh bisa memakan kita di giliran dia selanjutnya.
+        if dist_to_enemy <= ENEMY_RANGE:
+            continue # Skip langkah bunuh diri ini
+            
+        safe_actions.append(action)
+    
+    # PERINGATAN: Jika 'safe_actions' kosong (terpojok total), 
+    # terpaksa kembalikan original_actions (pasrah mati).
+    if not safe_actions:
+        return original_actions
+        
+    return safe_actions
 
   def add_child(self, child_node):
     self.children.append(child_node)

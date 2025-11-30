@@ -4,6 +4,7 @@ from algorithm.mcts.mcts import MCTS
 from algorithm.alphabeta.alphabeta import AlphaBetaSearch
 # --- TAMBAHAN 1: Import Minimax ---
 from algorithm.minimax.minimax import MinimaxSearch 
+# from algorithm.minmax.minmax import minmax
 from utils.logger import Logger
 
 class PlayerAgent:
@@ -16,7 +17,7 @@ class PlayerAgent:
         self.log = Logger("PlayerAgent")
 
         # --- Parameter Algoritma ---
-        mcts_iterations = 50
+        mcts_iterations = 1500
         mcts_sim_depth = 40
         alphabeta_max_depth = 4 
         minimax_max_depth = 4 # Minimax biasanya lebih berat, depth dikurangi dikit
@@ -31,6 +32,9 @@ class PlayerAgent:
         self.log.info("Initializing MinimaxSearch algorithm...")
         self.minimax_search = MinimaxSearch(max_depth=minimax_max_depth)
 
+        # self.log.info("Initializing MinMax algorithm...")
+        # self.minmax_search = Minimax(max_depth=minmax_max_depth)
+
         # --- Konfirmasi Pilihan Algoritma ---
         if self.algorithm_choice == "MCTS":
             self.log.info(f"--- PlayerAgent using: MCTS ---")
@@ -38,6 +42,8 @@ class PlayerAgent:
             self.log.info(f"--- PlayerAgent using: AlphaBeta ---")
         elif self.algorithm_choice == "MINIMAX": # <-- Tambahan Log
             self.log.info(f"--- PlayerAgent using: Minimax ---")
+        elif self.algorithm_choice == "MINMAX":   
+            self.log.info(f"--- PlayerAgent using: MinMax (Original) ---")
         else:
             self.log.warning(f"Unknown algorithm '{self.algorithm_choice}'. Defaulting to MCTS.")
             self.algorithm_choice = "MCTS"
@@ -60,6 +66,10 @@ class PlayerAgent:
         elif self.algorithm_choice == "MINIMAX":
             self.log.info("Minimax is thinking...")
             best_action = self.minimax_search.search(current_state)
+
+        elif self.algorithm_choice == "MINMAX":
+            self.log.info("MinMax (Original) is thinking...")
+            best_action = self.minmax_search.search(current_state)
 
         # --- Fallback ---
         if best_action is None:
