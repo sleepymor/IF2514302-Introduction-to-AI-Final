@@ -9,7 +9,6 @@ At every step, both the player (AI) and the enemy take turns moving within the s
 ### 2. Core Concept
 
 The core idea of this project is to create a turn-based tactical environment where an AI controlled agent (the player) must intelligently navigate a **grid-based map** to reach a goal while avoiding enemies and hazardous tiles.  
-Each tile in the grid has an associated movement cost or risk value, representing different terrain types.
 
 What differentiates this environment from traditional pathfinding problems is the adversarial and stochastic nature of the system:
 
@@ -53,9 +52,8 @@ This project draws inspiration from both academic AI problems and tactical game 
 ### 4. A*
 # Libraries and Tools[Can Change Later in Development]
 ### 1. PyGame
-### 2. Pandas
-### 3. MathPlotLib
-### 4. NumPy
+### 2. MathPlotLib
+### 3. NumPy
 # Team Role
 | No | Name             | Role / Task Description                                                                                                                                                                   |
 | -- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
