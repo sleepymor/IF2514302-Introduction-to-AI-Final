@@ -4,7 +4,7 @@ from algorithm.mcts.mcts import MCTS
 from algorithm.alphabeta.alphabeta import AlphaBetaSearch
 # --- TAMBAHAN 1: Import Minimax ---
 from algorithm.minimax.minimax import MinimaxSearch 
-from algorithm.minmax.minmax import minmax
+# from algorithm.minmax.minmax import minmax
 from utils.logger import Logger
 
 class PlayerAgent:
@@ -17,7 +17,7 @@ class PlayerAgent:
         self.log = Logger("PlayerAgent")
 
         # --- Parameter Algoritma ---
-        mcts_iterations = 50
+        mcts_iterations = 1500
         mcts_sim_depth = 40
         alphabeta_max_depth = 6 
         minimax_max_depth = 4 # Minimax biasanya lebih berat, depth dikurangi sedikit
@@ -32,8 +32,8 @@ class PlayerAgent:
         self.log.info("Initializing MinimaxSearch algorithm...")
         self.minimax_search = MinimaxSearch(max_depth=minimax_max_depth)
 
-        self.log.info("Initializing MinMax algorithm...")
-        self.minmax_search = Minimax(max_depth=minmax_max_depth)
+        # self.log.info("Initializing MinMax algorithm...")
+        # self.minmax_search = Minimax(max_depth=minmax_max_depth)
 
         # --- Konfirmasi Pilihan Algoritma ---
         if self.algorithm_choice == "MCTS":

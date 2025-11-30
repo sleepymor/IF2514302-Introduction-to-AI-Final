@@ -14,6 +14,19 @@ class MCTS:
     
 
   def search(self, node): 
+    root_state = MCTSNode(state=node).state
+    valid_actions = root_state.get_valid_actions(unit='current')
+    
+    for action in valid_actions:
+        # Simulasikan 1 langkah
+        temp_state = root_state.clone()
+        temp_state.step(action, simulate=True)
+        
+        # Jika aksi ini mencapai goal, AMBIL SEGERA!
+        if tuple(temp_state.player_pos) == temp_state.goal:
+            log.info(f"Instant Win found at {action}!")
+            return action
+          
     root = MCTSNode(state=node)
 
     for _ in range(self.iterations):
@@ -106,39 +119,61 @@ class MCTS:
     player_pos = tuple(state.player_pos)
     enemy_pos = tuple(state.enemy_pos)
     goal_pos = state.goal
-
+    
+    # Hitung jarak saat ini ke goal (sebelum bergerak)
+    current_dist_goal = abs(player_pos[0] - goal_pos[0]) + abs(player_pos[1] - goal_pos[1])
+    
     best_move = None
-    best_score = -float('inf') # Kita ingin memaksimalkan skor
+    best_score = -float('inf')
+
+    # Urutkan moves agar deterministik jika score sama, atau acak untuk variasi
+    random.shuffle(legal_moves) 
 
     for move in legal_moves:
-      if move in state.traps:
-        continue
+        if move in state.traps:
+            continue
+            
+        dist_goal = abs(move[0] - goal_pos[0]) + abs(move[1] - goal_pos[1])
+        dist_enemy = abs(move[0] - enemy_pos[0]) + abs(move[1] - enemy_pos[1])
         
-      # Hitung 'skor' untuk setiap gerakan yang mungkin
-      
-      # 1. Seberapa dekat ke goal? (Kita ingin ini sekecil mungkin)
-      dist_goal = abs(move[0] - goal_pos[0]) + abs(move[1] - goal_pos[1])
-      
-      # 2. Seberapa jauh dari musuh? (Kita ingin ini sebesar mungkin)
-      dist_enemy = abs(move[0] - enemy_pos[0]) + abs(move[1] - enemy_pos[1])
+        # --- LOGIKA SKOR BARU: MOMENTUM ---
+        score = 0
+        
+        # 1. Base Score: Jarak ke Goal
+        score -= dist_goal * 3.0 
+        
+        # 2. Momentum Bonus (KUNCI ANTI-OSCILLATION)
+        # Jika gerakan ini membuat kita LEBIH DEKAT ke goal dibanding posisi sekarang, beri bonus!
+        if dist_goal < current_dist_goal:
+            score += 5.0  # Insentif besar untuk MAJU
+        else:
+            score -= 2.0  # Penalti kecil untuk MUNDUR/DIAM
 
-      # Bobot: Kita anggap menjauhi musuh 2x lebih penting daripada mendekati goal
-      # (Angka 2.0 ini bisa di-tuning oleh Ibnu!)
-      score = (dist_enemy * 1.0) - (dist_goal * 2.0)
-
-      if score > best_score:
-        best_score = score
-        best_move = move
-
-    # Jika karena alasan tertentu tidak ada gerakan terbaik (misal semua skor sama)
-    # kita kembali ke gerakan acak untuk menghindari error.
+        # 3. Safety Logic (Tetap dipertahankan agar tidak mati konyol)
+        if dist_enemy <= 1:
+            score -= 100.0 # SANGAT BAHAYA (Instant Death zone)
+        elif dist_enemy <= 2:
+            score -= 10.0  # Bahaya
+        else:
+            score += dist_enemy * 0.5 # Sedikit bonus jika jauh dari musuh
+            
+        if score > best_score:
+            best_score = score
+            best_move = move
+            
     if best_move is None:
-      return random.choice(legal_moves)
-    
-
+        return random.choice(legal_moves)
+        
     return best_move
 
   def enemy_policy(self, state):
+    enemy_moves = list(state.get_move_range(state.enemy_pos, move_range=2))
+    player_pos_tuple = tuple(state.player_pos)
+    
+    # Jika posisi player ada dalam jangkauan gerak musuh -> SERANG!
+    if player_pos_tuple in enemy_moves:
+        return player_pos_tuple
+      
     a_star = AStar(env=state)
 
     start = tuple(state.enemy_pos)
@@ -178,19 +213,35 @@ class MCTS:
     player_position = tuple(state.player_pos)
     enemy_position = tuple(state.enemy_pos)
 
+    # 1. Terminal States
     if player_position == state.goal:
-        return 1.0
+        return 10.0  # BERIKAN REWARD MASIF UNTUK MENANG (Bukan cuma 1.0)
     if player_position == enemy_position or player_position in state.traps:
-        return -1.0
+        return -10.0 # BERIKAN PENALTI MASIF UNTUK KALAH
 
-    # Stable heuristic reward
+    # 2. Heuristic Calculation
     dist_goal = abs(player_position[0] - state.goal[0]) + abs(player_position[1] - state.goal[1])
     dist_enemy = abs(player_position[0] - enemy_position[0]) + abs(player_position[1] - enemy_position[1])
 
-    score = (
-        -0.05 * dist_goal +   # semakin dekat goal semakin bagus
-        +0.01 * dist_enemy    # semakin jauh dari musuh semakin bagus
-    )
+    score = 0
+    
+    # --- LOGIKA BARU: Agresif tapi Waspada ---
+    
+    # Fokus Utama: Semakin dekat goal, nilai semakin tinggi secara eksponensial
+    # Ini mendorong AI mengambil langkah terjauh (5 langkah) dibanding pendek (3 langkah)
+    goal_reward = 10.0 / (dist_goal + 1) 
+    
+    # Penalti musuh
+    enemy_penalty = 0
+    if dist_enemy <= 1:
+        enemy_penalty = 20.0 # SANGAT BAHAYA (sebelahan) -> LARI!
+    elif dist_enemy <= 2:
+        enemy_penalty = 5.0  # Bahaya, hindari jika bisa
+    elif dist_enemy <= 3:
+        enemy_penalty = 1.0  # Waspada, tapi jangan putar balik kalau goal dekat
+
+    score = goal_reward - enemy_penalty
+
     return score
 
 
