@@ -18,7 +18,7 @@ class PlayerAgent:
         # --- Parameter Algoritma ---
         mcts_iterations = 50
         mcts_sim_depth = 40
-        alphabeta_max_depth = 6 
+        alphabeta_max_depth = 4 
         minimax_max_depth = 4 # Minimax biasanya lebih berat, depth dikurangi sedikit
 
         self.log.info("Initializing MCTS algorithm...")

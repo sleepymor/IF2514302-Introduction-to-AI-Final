@@ -19,7 +19,7 @@ def main():
 
     # --- PERUBAHAN DI SINI ---
     # Kita tambahkan parameter algorithm="ALPHABETA"  
-    playerAgent = PlayerAgent(env, algorithm="ALPHABETA")
+    playerAgent = PlayerAgent(env, algorithm="MINIMAX")
     # -------------------------
     
     enemyAgent = EnemyAgent(env)
@@ -48,7 +48,7 @@ def main():
         env.draw(screen)
         pygame.display.flip()
 
-        clock.tick(5        )
+        clock.tick(60        )
 
     pygame.quit()
 
