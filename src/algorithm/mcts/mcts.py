@@ -9,14 +9,28 @@ from utils.logger import Logger
 log = Logger("MCTS")
 
 
-class MCTS:
-    def __init__(self, iterations=50, exploration_constant=1.4, max_sim_depth=40):
-        self.iterations = iterations
-        self.exploration_constant = exploration_constant
-        self.max_sim_depth = max_sim_depth
+class MCTS: 
+  def __init__(self, iterations=50, exploration_constant=1.4, max_sim_depth=400):
+    self.iterations = iterations
+    self.exploration_constant = exploration_constant
+    self.max_sim_depth = max_sim_depth
+    
 
-    def search(self, node: TacticalEnvironment) -> tuple:
-        root = MCTSNode(state=node)
+  def search(self, node): 
+    root_state = MCTSNode(state=node).state
+    valid_actions = root_state.get_valid_actions(unit='current')
+    
+    for action in valid_actions:
+        # Simulasikan 1 langkah
+        temp_state = root_state.clone()
+        temp_state.step(action, simulate=True)
+        
+        # Jika aksi ini mencapai goal, AMBIL SEGERA!
+        if tuple(temp_state.player_pos) == temp_state.goal:
+            log.info(f"Instant Win found at {action}!")
+            return action
+          
+    root = MCTSNode(state=node)
 
         successes = 0
         failures = 0
@@ -126,71 +140,82 @@ class MCTS:
                 if result and result[0]:
                     break
 
-            elif state.turn == "enemy":
-                enemy_action = self._enemy_policy(state)
+      elif state.turn == "enemy":
+        enemy_action = self.enemy_policy(state)
+        state.step(enemy_action, simulate=True)
+    
+    return self.rollout_reward(state)
+  
+  # punya ibnu
+  def _heuristic_rollout_policy(self, state, legal_moves):
+    """
+    Memilih gerakan 'ringan' yang cerdas, bukan acak.
+    Tujuannya: 1. Mendekati Goal, 2. Menjauhi Musuh.
+    """
+    player_pos = tuple(state.player_pos)
+    enemy_pos = tuple(state.enemy_pos)
+    goal_pos = state.goal
+    
+    # Hitung jarak saat ini ke goal (sebelum bergerak)
+    current_dist_goal = abs(player_pos[0] - goal_pos[0]) + abs(player_pos[1] - goal_pos[1])
+    
+    best_move = None
+    best_score = -float('inf')
 
-                result = state.step(enemy_action, simulate=True)
+    # Urutkan moves agar deterministik jika score sama, atau acak untuk variasi
+    random.shuffle(legal_moves) 
 
-                # Check if step caused terminal state
-                if result and result[0]:
-                    break
+    for move in legal_moves:
+        if move in state.traps:
+            continue
+            
+        dist_goal = abs(move[0] - goal_pos[0]) + abs(move[1] - goal_pos[1])
+        dist_enemy = abs(move[0] - enemy_pos[0]) + abs(move[1] - enemy_pos[1])
+        
+        # --- LOGIKA SKOR BARU: MOMENTUM ---
+        score = 0
+        
+        # 1. Base Score: Jarak ke Goal
+        score -= dist_goal * 3.0 
+        
+        # 2. Momentum Bonus (KUNCI ANTI-OSCILLATION)
+        # Jika gerakan ini membuat kita LEBIH DEKAT ke goal dibanding posisi sekarang, beri bonus!
+        if dist_goal < current_dist_goal:
+            score += 5.0  # Insentif besar untuk MAJU
+        else:
+            score -= 2.0  # Penalti kecil untuk MUNDUR/DIAM
 
-        return self._rollout_reward(state)
+        # 3. Safety Logic (Tetap dipertahankan agar tidak mati konyol)
+        if dist_enemy <= 1:
+            score -= 100.0 # SANGAT BAHAYA (Instant Death zone)
+        elif dist_enemy <= 2:
+            score -= 10.0  # Bahaya
+        else:
+            score += dist_enemy * 0.5 # Sedikit bonus jika jauh dari musuh
+            
+        if score > best_score:
+            best_score = score
+            best_move = move
+            
+    if best_move is None:
+        return random.choice(legal_moves)
+        
+    return best_move
 
-    def _heuristic_rollout_policy(
-        self, state: TacticalEnvironment, legal_moves: list
-    ) -> tuple:
-        """
-        Memilih gerakan 'ringan' yang cerdas, bukan acak.
-        Tujuannya: 1. Mendekati Goal, 2. Menjauhi Musuh.
-        """
-        if not legal_moves:
-            return None  # No moves available
+  def enemy_policy(self, state):
+    enemy_moves = list(state.get_move_range(state.enemy_pos, move_range=2))
+    player_pos_tuple = tuple(state.player_pos)
+    
+    # Jika posisi player ada dalam jangkauan gerak musuh -> SERANG!
+    if player_pos_tuple in enemy_moves:
+        return player_pos_tuple
+      
+    a_star = AStar(env=state)
 
-        enemy_pos = tuple(state.enemy_pos)
-        goal_pos = state.goal
+    start = tuple(state.enemy_pos)
+    goal = tuple(state.player_pos)
 
-        best_move = None
-        best_score = -float("inf")
-
-        for move in legal_moves:
-            # Skip walls and traps (these shouldn't be in legal_moves anyway)
-            if move in state.walls or move in state.traps:
-                continue
-
-            # Calculate score
-            dist_goal = abs(move[0] - goal_pos[0]) + abs(move[1] - goal_pos[1])
-
-            dist_enemy = abs(move[0] - enemy_pos[0]) + abs(move[1] - enemy_pos[1])
-
-            score = -dist_goal
-            # score = (dist_enemy * 1.0) - (dist_goal * 2.0)
-
-            # Penalty if too close to enemy
-            if dist_enemy <= 1:
-                score -= 3.0
-
-            if score > best_score:
-                best_score = score
-                best_move = move
-
-        # Safety check
-        if best_move is None and legal_moves:
-            best_move = random.choice(legal_moves)
-
-        return best_move
-
-    def _enemy_policy(self, state: TacticalEnvironment) -> tuple:
-        enemy_moves = list(state.get_move_range(state.enemy_pos))
-
-        if not enemy_moves:
-            return tuple(state.enemy_pos)
-
-        # Use A* to find path to player
-        a_star = AStar(env=state)
-        start = tuple(state.enemy_pos)
-        goal = tuple(state.player_pos)
-        path = a_star.search(start, goal)
+    path = a_star.search(start, goal)
 
         # No path found or path too short
         if not path or len(path) <= 1:
@@ -214,45 +239,44 @@ class MCTS:
         player_position = tuple(state.player_pos)
         enemy_position = tuple(state.enemy_pos)
 
-        if player_position == state.goal:
-            return 1.0  # Win condition
+    # 1. Terminal States
+    if player_position == state.goal:
+        return 10.0  # BERIKAN REWARD MASIF UNTUK MENANG (Bukan cuma 1.0)
+    if player_position == enemy_position or player_position in state.traps:
+        return -10.0 # BERIKAN PENALTI MASIF UNTUK KALAH
 
-        if player_position == enemy_position or player_position in state.traps:
-            return -1.0  # Loss condition
+    # 2. Heuristic Calculation
+    dist_goal = abs(player_position[0] - state.goal[0]) + abs(player_position[1] - state.goal[1])
+    dist_enemy = abs(player_position[0] - enemy_position[0]) + abs(player_position[1] - enemy_position[1])
 
-        # Stable heuristic reward
-        dist_goal = abs(player_position[0] - state.goal[0]) + abs(
-            player_position[1] - state.goal[1]
-        )
-        dist_enemy = abs(player_position[0] - enemy_position[0]) + abs(
-            player_position[1] - enemy_position[1]
-        )
+    score = 0
+    
+    # --- LOGIKA BARU: Agresif tapi Waspada ---
+    
+    # Fokus Utama: Semakin dekat goal, nilai semakin tinggi secara eksponensial
+    # Ini mendorong AI mengambil langkah terjauh (5 langkah) dibanding pendek (3 langkah)
+    goal_reward = 10.0 / (dist_goal + 1) 
+    
+    # Penalti musuh
+    enemy_penalty = 0
+    if dist_enemy <= 1:
+        enemy_penalty = 20.0 # SANGAT BAHAYA (sebelahan) -> LARI!
+    elif dist_enemy <= 2:
+        enemy_penalty = 5.0  # Bahaya, hindari jika bisa
+    elif dist_enemy <= 3:
+        enemy_penalty = 1.0  # Waspada, tapi jangan putar balik kalau goal dekat
 
-        # Base score
-        goal_score = -0.05 * dist_goal
+    score = goal_reward - enemy_penalty
 
-        if dist_enemy <= 1:
-            enemy_penalty = -0.5  # Heavy penalty for being next to enemy
-        elif dist_enemy <= 2:
-            enemy_penalty = -0.2  # Medium penalty
-        else:
-            enemy_penalty = 0.02 * dist_enemy  # Small bonus for being far
+    return score
 
-        player_legal_moves = state.get_move_range(player_position)
-        mobility_bonus = 0.01 * len(player_legal_moves)
 
-        score = goal_score + enemy_penalty + mobility_bonus
-        # score = (
-        #     -0.05 * dist_goal  # semakin dekat goal semakin bagus
-        #     + 0.02 * dist_enemy  # semakin jauh dari musuh semakin bagus
-        # )
-        return max(score, -0.9)
+  def backpropagation(self, node: MCTSNode, reward: float): 
+    """
+      Backpropagation phase: update node statistics up to root
+    """
+    while node is not None:
+      node.visits += 1
+      node.wins += reward
+      node = node.parent
 
-    def _backpropagation(self, node: MCTSNode, reward: float) -> None:
-        """
-        Backpropagation phase: update node statistics up to root
-        """
-        while node is not None:
-            node.visits += 1
-            node.wins += reward
-            node = node.parent
