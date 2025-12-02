@@ -9,9 +9,9 @@ from environment.generator import generate_environment
 BG_COLOR = (20, 20, 30)
 GRID_COLOR = (50, 50, 70)
 MOVE_RANGE_COLOR = (80, 80, 200, 100)
-ENEMY_MOVE_RANGE_COLOR = (70, 70, 150, 100)
+ENEMY_MOVE_RANGE_COLOR = (150, 26, 26, 100)
 TILE_SIZE = 40
-FPS = 30
+FPS = 60
 
 
 class TacticalEnvironment:
@@ -36,12 +36,17 @@ class TacticalEnvironment:
         """
         self.width = width
         self.height = height
+
         self.num_walls = num_walls
         self.num_traps = num_traps
         self.seed = seed
+
         self.use_assets = use_assets
         self.tile_dir = tile_dir
         self.char_dir = char_dir
+
+        self.turn_counter = 0
+        self.trap_spawned = False
 
         self.textures = self.load_textures() if use_assets else None
 
@@ -227,6 +232,28 @@ class TacticalEnvironment:
           return (True, "caught")
       return (False, None)
 
+    # def spawn_trap(self):
+    #     empty_tiles = [
+    #       (x, y) 
+    #       for x in range(self.width) 
+    #       for y in range(self.height)
+    #       if (x, y) != tuple(self.player_pos) 
+    #       and (x, y) != tuple(self.enemy_pos) 
+    #       and (x, y) != self.goal 
+    #       and (x, y) not in self.walls 
+    #       and (x, y) not in self.traps
+    #     ]
+        
+    #     if not empty_tiles:
+    #        return
+        
+    #     new_trap = random.choice(empty_tiles)
+    #     self.traps.add(new_trap)
+          
+
+          
+        
+
     def step(self, action, simulate=False):
       """
         Execute one turn of the game.
@@ -264,7 +291,6 @@ class TacticalEnvironment:
 
         self.turn = 'enemy'
 
-
       elif self.turn == 'enemy':
         # Enemy action
         if action is not None:
@@ -283,6 +309,11 @@ class TacticalEnvironment:
           
         self.turn = 'player'
       
+      # if not self.trap_spawned:
+      #    self.spawn_trap()
+      #    self.trap_spawned = True
+
+
       if simulate: 
         return (False, None)
     

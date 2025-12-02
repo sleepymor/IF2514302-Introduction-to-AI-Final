@@ -7,7 +7,7 @@ from utils.logger import Logger
 log = Logger("MCTS")
 
 class MCTS: 
-  def __init__(self, iterations=50, exploration_constant=1.4, max_sim_depth=40):
+  def __init__(self, iterations=50, exploration_constant=1.4, max_sim_depth=400):
     self.iterations = iterations
     self.exploration_constant = exploration_constant
     self.max_sim_depth = max_sim_depth
