@@ -1,64 +1,81 @@
-import math
-from environment.environment import TacticalEnvironment
+from algorithm.minimax.minimaxnode import MinimaxNode  # <--- Perbaikan Import (Pakai Class)
 from utils.logger import Logger
-
-# Import fungsi evaluate dari file sebelah (minimaxnode.py)
-from algorithm.minimax.minimaxnode import heuristic_evaluate 
-
-log = Logger("Minimax")
+import random
 
 class MinimaxSearch:
-    
     def __init__(self, max_depth=3):
         self.max_depth = max_depth
-        log.info(f"MinimaxSearch initialized with max_depth={self.max_depth}")
+        self.log = Logger("Minimax")
 
-    def search(self, initial_state: TacticalEnvironment):
+    def search(self, state):
+        """
+        Memulai pencarian Minimax untuk menemukan gerakan terbaik.
+        """
+        best_val = -float('inf')
         best_action = None
-        best_score = -math.inf
         
-        legal_actions = list(initial_state.get_valid_actions(unit='current'))
+        legal_actions = list(state.get_valid_actions(unit='current'))
+        
+        if not legal_actions:
+            return None
 
-        # Loop level root
+        self.log.info("Minimax is thinking...")
+
+        # Level Akar (Root)
         for action in legal_actions:
-            new_state = initial_state.clone()
-            new_state.step(action, simulate=True)
+            # Clone state dan terapkan langkah
+            next_state = state.clone()
+            next_state.step(action)
             
-            # Panggil rekursif
-            score = self._minimax(new_state, self.max_depth - 1, False)
+            # Panggil min_value (karena setelah kita gerak, giliran musuh)
+            val = self.min_value(next_state, 1)
             
-            if score > best_score:
-                best_score = score
+            # Log skor untuk setiap aksi
+            self.log.info(f"Action {action} evaluated -> score: {val}")
+
+            if val > best_val:
+                best_val = val
                 best_action = action
-                
-        log.info(f"Best action found: {best_action} with score: {best_score}")
+            
+        self.log.info(f"Best action found: {best_action} with score: {best_val}")
         return best_action
 
-    def _minimax(self, current_state: TacticalEnvironment, depth: int, is_maximizing_player: bool):
-        is_term, _ = current_state.is_terminal()
+    def max_value(self, state, depth):
+        # 1. Buat Node untuk cek terminal/evaluasi
+        node = MinimaxNode(state)  # <--- Buat Objek Node
         
-        # --- BASE CASE ---
-        if depth == 0 or is_term:
-            # Panggil fungsi dari minimaxnode.py
-            return heuristic_evaluate(current_state, depth=depth)
+        # 2. Cek apakah sudah terminal atau mencapai kedalaman maksimum
+        if depth == self.max_depth or node.is_terminal():
+            return node.evaluate() # <--- Panggil method evaluate() dari class
 
-        # --- RECURSIVE CASE ---
-        legal_actions = list(current_state.get_valid_actions(unit='current'))
+        v = -float('inf')
+        legal_actions = list(state.get_valid_actions(unit='current'))
 
-        if is_maximizing_player:
-            max_eval = -math.inf
-            for action in legal_actions:
-                new_state = current_state.clone()
-                new_state.step(action, simulate=True)
-                eval_val = self._minimax(new_state, depth - 1, False)
-                max_eval = max(max_eval, eval_val)
-            return max_eval
+        for action in legal_actions:
+            next_state = state.clone()
+            next_state.step(action)
             
-        else:
-            min_eval = math.inf
-            for action in legal_actions:
-                new_state = current_state.clone()
-                new_state.step(action, simulate=True)
-                eval_val = self._minimax(new_state, depth - 1, True)
-                min_eval = min(min_eval, eval_val)
-            return min_eval
+            # Rekursi ke min_value
+            v = max(v, self.min_value(next_state, depth + 1))
+            
+        return v
+
+    def min_value(self, state, depth):
+        # 1. Buat Node untuk cek terminal/evaluasi
+        node = MinimaxNode(state) # <--- Buat Objek Node
+        
+        # 2. Cek terminal/depth
+        if depth == self.max_depth or node.is_terminal():
+            return node.evaluate() # <--- Panggil method evaluate() dari class
+
+        v = float('inf')
+        legal_actions = list(state.get_valid_actions(unit='current'))
+
+        for action in legal_actions:
+            next_state = state.clone()
+            next_state.step(action)
+            
+            # Rekursi ke max_value
+            v = min(v, self.max_value(next_state, depth + 1))
+            
+        return v

@@ -2,41 +2,62 @@ import math
 import random
 from environment.environment import TacticalEnvironment
 
-# --- Skor Definitif ---
-WIN_SCORE = 1_000_000
-LOSE_SCORE = -1_000_000
-
-def heuristic_evaluate(state: TacticalEnvironment, depth: int = 0) -> float:
-    player_pos = tuple(state.player_pos)
-    enemy_pos = tuple(state.enemy_pos)
-    goal_pos = state.goal
-
-    # --- 1. Terminal State ---
-    if player_pos == goal_pos:
-        # Bonus besar untuk kedalaman (depth) agar lari sekencang mungkin
-        return WIN_SCORE + (depth * 5000)
+class MinimaxNode:
+    """
+    Node untuk algoritma Minimax.
+    Menggunakan logika evaluasi yang sama dengan AlphaBeta:
+    - Poin PLUS (+) besar jika mendekat ke Goal.
+    - Poin MINUS (-) besar jika dekat dengan Enemy.
+    """
     
-    if player_pos == enemy_pos or player_pos in state.traps:
-        return LOSE_SCORE
+    WIN_SCORE = 1_000_000
+    LOSE_SCORE = -1_000_000
 
-    score = 0.0
-    
-    # --- 2. LOGIKA BARU: Jarak ke Goal (Obsesif) ---
-    dist_to_goal = abs(player_pos[0] - goal_pos[0]) + abs(player_pos[1] - goal_pos[1])
-    
-    # Kita beri bobot SANGAT BESAR (200) agar dia tidak peduli rintangan kecil
-    score -= dist_to_goal * 200 
+    def __init__(self, state: TacticalEnvironment, parent=None, action=None):
+        self.state = state
+        self.parent = parent
+        self.action = action
 
-    # --- 3. Rasa Takut (Hanya jika kritis) ---
-    dist_to_enemy = abs(player_pos[0] - enemy_pos[0]) + abs(player_pos[1] - enemy_pos[1])
-    
-    # UBAH DISINI: Hanya takut jika jarak <= 2 (Benar-benar dekat)
-    # Jika jarak 3 atau 4, AI akan mengabaikan musuh demi mencapai goal.
-    if dist_to_enemy <= 2:
-        score -= 10000.0 / (dist_to_enemy + 0.1)
+    def evaluate(self) -> float:
+        player_pos = tuple(self.state.player_pos)
+        enemy_pos = tuple(self.state.enemy_pos)
+        goal_pos = self.state.goal
 
-    # --- 4. Anti-Stuck (Random lebih besar) ---
-    # Perbesar nilai random agar dia mau mencoba langkah "aneh" saat buntu
-    score += random.uniform(0, 2.0)
+        # --- 1. Cek Terminal State (Menang/Kalah) ---
+        if player_pos == goal_pos:
+            return self.WIN_SCORE
+        if player_pos == enemy_pos or player_pos in self.state.traps:
+            return self.LOSE_SCORE
 
-    return score
+        score = 0.0
+        
+        # --- 2. LOGIKA UTAMA: Semakin Dekat Goal = Semakin Tinggi Skor (+) ---
+        dist_to_goal = abs(player_pos[0] - goal_pos[0]) + abs(player_pos[1] - goal_pos[1])
+        
+        # Hitung jarak terjauh yang mungkin (Diagonal Peta)
+        max_dist = self.state.width + self.state.height
+        
+        # Rumus: (Jarak Maksimal - Jarak Sekarang) * Bobot
+        # Ini memastikan gerakan mendekati goal selalu memberi tambahan poin positif.
+        score += (max_dist - dist_to_goal) * 20 
+
+        # --- 3. Hindari Musuh (Repulsion Field) ---
+        dist_to_enemy = abs(player_pos[0] - enemy_pos[0]) + abs(player_pos[1] - enemy_pos[1])
+        safe_dist_enemy = max(dist_to_enemy, 0.5)
+        
+        # Pengurangan nilai drastis jika musuh terlalu dekat
+        score -= 2000.0 / safe_dist_enemy
+
+        # --- 4. Bonus Mobilitas ---
+        # Agar AI tidak terjebak di jalan buntu
+        num_legal_moves = len(self.get_legal_actions())
+        score += num_legal_moves * 15
+
+        return score
+
+    def get_legal_actions(self):
+        return self.state.get_valid_actions(unit='current')
+
+    def is_terminal(self):
+        is_term, _ = self.state.is_terminal()
+        return is_term
