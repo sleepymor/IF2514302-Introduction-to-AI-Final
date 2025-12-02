@@ -9,9 +9,9 @@ from environment.generator import generate_environment
 BG_COLOR = (20, 20, 30)
 GRID_COLOR = (50, 50, 70)
 MOVE_RANGE_COLOR = (80, 80, 200, 100)
-ENEMY_MOVE_RANGE_COLOR = (70, 70, 150, 100)
+ENEMY_MOVE_RANGE_COLOR = (150, 26, 26, 100)
 TILE_SIZE = 40
-FPS = 30
+FPS = 60
 
 
 class TacticalEnvironment:
@@ -23,12 +23,21 @@ class TacticalEnvironment:
     def __init__(self, width=10, height=10, num_walls=10, num_traps=5, seed=None, use_assets=False, tile_dir="assets/tiles", char_dir="assets/characters"):
         self.width = width
         self.height = height
+
         self.num_walls = num_walls
         self.num_traps = num_traps
         self.seed = seed
+
         self.use_assets = use_assets
         self.tile_dir = tile_dir
         self.char_dir = char_dir
+
+        # Animation draw positions
+        self.player_draw_pos = None
+        self.enemy_draw_pos = None
+
+
+        self.turn_counter = 0
 
         self.textures = self.load_textures() if use_assets else None
 
@@ -130,6 +139,28 @@ class TacticalEnvironment:
             return (True, "caught")
         return (False, None)
 
+    def spawn_trap(self):
+        empty_tiles = [
+          (x, y) 
+          for x in range(self.width) 
+          for y in range(self.height)
+          if (x, y) != tuple(self.player_pos) 
+          and (x, y) != tuple(self.enemy_pos) 
+          and (x, y) != self.goal 
+          and (x, y) not in self.walls 
+          and (x, y) not in self.traps
+        ]
+        
+        if not empty_tiles:
+           return
+        
+        new_trap = random.choice(empty_tiles)
+        self.traps.add(new_trap)
+          
+
+          
+        
+
     def step(self, action, simulate=False):
         """
         Execute one turn of the game.
@@ -171,7 +202,63 @@ class TacticalEnvironment:
             
             self.turn = 'player'
         
+<<<<<<< HEAD
         # Jika game belum selesai
+=======
+        Returns:
+          tuple or None: (is_terminal, reason) if simulate=True, else None
+      """
+      self._cached_player_moves = None
+      self._cached_enemy_moves = None
+
+      if self.turn == 'player' and action is not None and not simulate:
+        # Player action
+        if action is not None:
+          move_tiles = self.get_move_range(self.player_pos)
+          if action in move_tiles:
+            self.player_pos = self.move_unit(self.player_pos, action)
+
+        is_terminal, reason = self.is_terminal()
+        if is_terminal:
+          if not simulate:
+            if reason == "goal":
+                print("You reached the goal! Resetting...")
+            elif reason == "trap":
+                print("You hit a trap! Resetting...")
+            self.reset()
+            return
+          else:
+            return (True, reason)
+
+        self.turn = 'enemy'
+
+      elif self.turn == 'enemy':
+        # Enemy action
+        if action is not None:
+          enemy_moves_tiles = self.get_move_range(self.enemy_pos)
+          if action in enemy_moves_tiles:
+              self.enemy_pos = self.move_unit(self.enemy_pos, action)
+
+        is_terminal, reason = self.is_terminal()
+        if is_terminal:
+          if not simulate:
+            print("Enemy caught you! Resetting...")
+            self.reset()
+            return
+          else:
+            return (True, reason)
+          
+        self.turn = 'player'
+
+        self.turn_counter += 1
+
+        if self.turn_counter % 3 == 0:
+            print("Trap spawned on turn", self.turn_counter)
+            self.spawn_trap()
+      return
+
+      if simulate: 
+>>>>>>> 698d9f507b39de653514052a5ca4174be31f9edf
         return (False, None)
     
     def get_valid_actions(self, unit='current'):
@@ -185,6 +272,7 @@ class TacticalEnvironment:
         
         return set()
 
+
     def draw(self, screen):
         """
         Render the entire game state to screen.
@@ -194,6 +282,7 @@ class TacticalEnvironment:
             for x in range(self.width):
                 rect = pygame.Rect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE)
 
+<<<<<<< HEAD
                 # Draw grid lines
                 pygame.draw.rect(screen, GRID_COLOR, rect, 1)
 
@@ -233,6 +322,39 @@ class TacticalEnvironment:
             surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
             surf.fill(ENEMY_MOVE_RANGE_COLOR)
             screen.blit(surf, rect.topleft)
+=======
+        # Draw grid and tiles
+      for y in range(self.height):
+          for x in range(self.width):
+            rect = pygame.Rect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE)
+
+            # Draw grid lines
+            pygame.draw.rect(screen, GRID_COLOR, rect, 1)
+
+            # Draw coordinate labels
+            if self.coordinate_font:
+              text = self.coordinate_font.render(f"{x},{y}", True, (100, 100, 150))
+              screen.blit(text, (x * TILE_SIZE + 2, y * TILE_SIZE + 2))
+            
+
+            if (x, y) in self.walls:
+              if self.use_assets:
+                screen.blit(self.textures['wall'], rect.topleft)
+              else:
+                pygame.draw.rect(screen, (100, 100, 100), rect)
+
+            elif (x, y) in self.traps:
+              if self.use_assets:
+                screen.blit(self.textures['trap'], rect.topleft)
+              else:
+                pygame.draw.rect(screen, (200, 50, 200), rect)
+              
+            elif (x, y) == self.goal:
+              if self.use_assets:
+                screen.blit(self.textures['goal'], rect.topleft)
+              else:
+                pygame.draw.rect(screen, (80, 255, 120), rect)
+>>>>>>> 698d9f507b39de653514052a5ca4174be31f9edf
 
         if self.use_assets:
             screen.blit(self.textures['player'], (self.player_pos[0]*TILE_SIZE, self.player_pos[1]*TILE_SIZE))
