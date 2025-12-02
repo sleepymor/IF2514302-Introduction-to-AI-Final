@@ -18,62 +18,45 @@ class AlphaBetaNode:
         enemy_pos = tuple(self.state.enemy_pos)
         goal_pos = self.state.goal
 
-        # 1. TERMINAL STATES
+        # --- 1. Cek Menang/Kalah ---
         if player_pos == goal_pos:
             return self.WIN_SCORE
+        
+        # Hanya kalah jika TERTANGKAP (posisi sama).
+        # Jangan anggap kalah jika cuma dekat, atau AI akan menyerah duluan.
         if player_pos == enemy_pos or player_pos in self.state.traps:
             return self.LOSE_SCORE
 
         score = 0.0
         
-        # 2. JARAK KE GOAL (selalu negatif, makin dekat makin baik)
+        # --- 2. Fokus Utama: Jarak ke Goal (Bobot DIBESARKAN) ---
+        # Kita naikkan drastis dari 20 ke 100 per langkah.
+        # Ini memaksa AI untuk berpikir "Maju itu sangat menguntungkan".
         dist_to_goal = abs(player_pos[0] - goal_pos[0]) + abs(player_pos[1] - goal_pos[1])
-        score -= dist_to_goal * 10  # PASTI ADA NILAI!
-        
-        # 3. JAUH DARI MUSUH (sangat penting!)
+        score -= dist_to_goal * 100 
+
+        # --- 3. Rasa Takut Musuh (DIBATASI) ---
         dist_to_enemy = abs(player_pos[0] - enemy_pos[0]) + abs(player_pos[1] - enemy_pos[1])
         
-        if dist_to_enemy <= 2:
-            score -= 1000  # Sangat dekat = buruk
-        elif dist_to_enemy <= 4:
-            score -= 300   # Dekat = agak buruk
-        else:
-            score += 50    # Jauh = baik
-            
-        # 4. BONUS untuk mobilitas
-        legal_moves = self.get_legal_actions()
-        num_moves = len(legal_moves)
-        score += num_moves * 5
-        
-        # 5. HINDARI PERANGKAP
-        for trap in self.state.traps:
-            trap_dist = abs(player_pos[0] - trap[0]) + abs(player_pos[1] - trap[1])
-            if trap_dist == 0:
-                score -= 5000
-            elif trap_dist == 1:
-                score -= 1000
-            elif trap_dist == 2:
-                score -= 200
-        
-        # 6. HINDARI POJOK
-        if (player_pos[0] == 0 or player_pos[0] == self.state.width - 1 or
-            player_pos[1] == 0 or player_pos[1] == self.state.height - 1):
-            score -= 100
-            
-        # PASTIKAN SCORE TIDAK 0!
-        if score == 0:
-            score = 1.0  # Minimal 1
-        
-        # 7. BONUS untuk posisi tengah
-        center_x, center_y = self.state.width // 2, self.state.height // 2
-        dist_to_center = abs(player_pos[0] - center_x) + abs(player_pos[1] - center_y)
-        score -= dist_to_center * 3
+        # LOGIKA BARU: "Zona Aman"
+        # Jika jarak musuh > 3 langkah, ABAIKAN musuh. Fokus lari ke goal!
+        # Ini mencegah AI ketakutan dari jarak jauh yang bikin dia mundur-mundur.
+        if dist_to_enemy <= 3:
+            # Jika sangat dekat (<= 3), baru beri penalti besar agar menghindar
+            # Pakai kuadrat agar makin dekat makin panik
+            score -= 5000.0 / (dist_to_enemy ** 2)
 
-        # 8. HINDARI GERAKAN BOLAK-BALIK (jika ada parent)
-        if self.parent:
-            grandparent = self.parent.parent
-            if grandparent and player_pos == tuple(grandparent.state.player_pos):
-                score -= 500  # Penalty untuk bolak-balik
+        # --- 4. Bonus Eksplorasi Kecil ---
+        # Beri sedikit poin plus untuk opsi langkah yang banyak (agar tidak mojok)
+        num_legal_moves = len(self.get_legal_actions())
+        score += num_legal_moves * 10
+
+        # --- 5. Anti-Looping (Noise) ---
+        # Tambahkan nilai random yang sangat kecil (misal 0.1 - 0.9).
+        # Tujuannya: Jika ada dua langkah yang nilainya sama persis (bikin bingung),
+        # noise ini akan memilihkan salah satu agar AI tidak macet/bolak-balik.
+        import random
+        score += random.uniform(0, 0.5)
 
         # 9. PASTIKAN SCORE TIDAK 0!
        
