@@ -2,8 +2,7 @@ from environment.environment import TacticalEnvironment
 
 class AlphaBetaNode:
     """
-    Node Alpha-Beta yang diperbaiki dengan logika 'Repulsion Field'.
-    Player akan mencoba menghindari musuh dari jarak jauh dan mencari jalan aman.
+    SIMPLE AlphaBeta Node - FIXED VERSION
     """
     
     WIN_SCORE = 1_000_000
@@ -19,7 +18,7 @@ class AlphaBetaNode:
         enemy_pos = tuple(self.state.enemy_pos)
         goal_pos = self.state.goal
 
-        # --- 1. Terminal State Check ---
+        # 1. TERMINAL STATES
         if player_pos == goal_pos:
             return self.WIN_SCORE
         if player_pos == enemy_pos or player_pos in self.state.traps:
@@ -27,28 +26,63 @@ class AlphaBetaNode:
 
         score = 0.0
         
-        # --- 2. Jarak ke Goal (Manhattan Distance) ---
+        # 2. JARAK KE GOAL (selalu negatif, makin dekat makin baik)
         dist_to_goal = abs(player_pos[0] - goal_pos[0]) + abs(player_pos[1] - goal_pos[1])
+        score -= dist_to_goal * 10  # PASTI ADA NILAI!
         
-        # Bobot dikurangi (20) agar Player tidak terlalu 'kaku' ingin garis lurus
-        score -= dist_to_goal * 20 
-
-        # --- 3. Gradasi Bahaya Musuh (Smooth Repulsion) ---
+        # 3. JAUH DARI MUSUH (sangat penting!)
         dist_to_enemy = abs(player_pos[0] - enemy_pos[0]) + abs(player_pos[1] - enemy_pos[1])
         
-        # Hindari pembagian dengan nol (jika enemy tepat di sebelah/sama)
-        safe_dist_enemy = max(dist_to_enemy, 0.5)
+        if dist_to_enemy <= 2:
+            score -= 1000  # Sangat dekat = buruk
+        elif dist_to_enemy <= 4:
+            score -= 300   # Dekat = agak buruk
+        else:
+            score += 50    # Jauh = baik
+            
+        # 4. BONUS untuk mobilitas
+        legal_moves = self.get_legal_actions()
+        num_moves = len(legal_moves)
+        score += num_moves * 5
         
-        # Logika Medan Tolak-Menolak:
-        # Semakin dekat musuh, nilai minusnya semakin besar secara eksponensial/drastis.
-        # Ini membuat AI merasa 'panas' jika musuh mendekat, meski belum jarak 1.
-        score -= 2000.0 / safe_dist_enemy
+        # 5. HINDARI PERANGKAP
+        for trap in self.state.traps:
+            trap_dist = abs(player_pos[0] - trap[0]) + abs(player_pos[1] - trap[1])
+            if trap_dist == 0:
+                score -= 5000
+            elif trap_dist == 1:
+                score -= 1000
+            elif trap_dist == 2:
+                score -= 200
+        
+        # 6. HINDARI POJOK
+        if (player_pos[0] == 0 or player_pos[0] == self.state.width - 1 or
+            player_pos[1] == 0 or player_pos[1] == self.state.height - 1):
+            score -= 100
+            
+        # PASTIKAN SCORE TIDAK 0!
+        if score == 0:
+            score = 1.0  # Minimal 1
+        
+        # 7. BONUS untuk posisi tengah
+        center_x, center_y = self.state.width // 2, self.state.height // 2
+        dist_to_center = abs(player_pos[0] - center_x) + abs(player_pos[1] - center_y)
+        score -= dist_to_center * 3
 
-        # --- 4. Bonus Mobilitas (Agar tidak terjebak di pojok) ---
-        # AI akan lebih suka posisi yang punya banyak opsi langkah (ruang terbuka)
-        num_legal_moves = len(self.get_legal_actions())
-        score += num_legal_moves * 15
+        # 8. HINDARI GERAKAN BOLAK-BALIK (jika ada parent)
+        if self.parent:
+            grandparent = self.parent.parent
+            if grandparent and player_pos == tuple(grandparent.state.player_pos):
+                score -= 500  # Penalty untuk bolak-balik
 
+        # 9. PASTIKAN SCORE TIDAK 0!
+       
+        # PASTIKAN SCORE TIDAK 0!
+        # === TAMBAH INI ===
+        if -0.1 < score < 0.1:  # Jika score hampir 0
+            score += 0.3  # <-- PASTI 0.3  Tambah nilai kecil positif
+    
+            
         return score
 
     def get_legal_actions(self):

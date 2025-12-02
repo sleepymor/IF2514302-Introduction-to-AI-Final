@@ -24,7 +24,7 @@ def main():
 
     # --- PERUBAHAN DI SINI ---
     # Kita tambahkan parameter algorithm="ALPHABETA"  
-    playerAgent = PlayerAgent(env, algorithm="MCTS")
+    playerAgent = PlayerAgent(env, algorithm="ALPHABETA")
     # -------------------------
     
     enemyAgent = EnemyAgent(env)
