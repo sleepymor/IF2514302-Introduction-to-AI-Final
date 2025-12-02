@@ -45,6 +45,11 @@ class TacticalEnvironment:
         self.tile_dir = tile_dir
         self.char_dir = char_dir
 
+        # Animation draw positions
+        self.player_draw_pos = None
+        self.enemy_draw_pos = None
+
+
         self.turn_counter = 0
         self.trap_spawned = False
 
@@ -337,6 +342,7 @@ class TacticalEnvironment:
       
       return set()
 
+
     def draw(self, screen):
       """
       Render the entire game state to screen.
@@ -346,37 +352,37 @@ class TacticalEnvironment:
         screen: pygame Surface to draw on
       """
 
-      # Draw grid and tiles
+        # Draw grid and tiles
       for y in range(self.height):
-        for x in range(self.width):
-          rect = pygame.Rect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE)
+          for x in range(self.width):
+            rect = pygame.Rect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE)
 
-          # Draw grid lines
-          pygame.draw.rect(screen, GRID_COLOR, rect, 1)
+            # Draw grid lines
+            pygame.draw.rect(screen, GRID_COLOR, rect, 1)
 
-          # Draw coordinate labels
-          if self.coordinate_font:
-            text = self.coordinate_font.render(f"{x},{y}", True, (100, 100, 150))
-            screen.blit(text, (x * TILE_SIZE + 2, y * TILE_SIZE + 2))
-          
-
-          if (x, y) in self.walls:
-            if self.use_assets:
-              screen.blit(self.textures['wall'], rect.topleft)
-            else:
-              pygame.draw.rect(screen, (100, 100, 100), rect)
-
-          elif (x, y) in self.traps:
-            if self.use_assets:
-              screen.blit(self.textures['trap'], rect.topleft)
-            else:
-              pygame.draw.rect(screen, (200, 50, 200), rect)
+            # Draw coordinate labels
+            if self.coordinate_font:
+              text = self.coordinate_font.render(f"{x},{y}", True, (100, 100, 150))
+              screen.blit(text, (x * TILE_SIZE + 2, y * TILE_SIZE + 2))
             
-          elif (x, y) == self.goal:
-            if self.use_assets:
-              screen.blit(self.textures['goal'], rect.topleft)
-            else:
-              pygame.draw.rect(screen, (80, 255, 120), rect)
+
+            if (x, y) in self.walls:
+              if self.use_assets:
+                screen.blit(self.textures['wall'], rect.topleft)
+              else:
+                pygame.draw.rect(screen, (100, 100, 100), rect)
+
+            elif (x, y) in self.traps:
+              if self.use_assets:
+                screen.blit(self.textures['trap'], rect.topleft)
+              else:
+                pygame.draw.rect(screen, (200, 50, 200), rect)
+              
+            elif (x, y) == self.goal:
+              if self.use_assets:
+                screen.blit(self.textures['goal'], rect.topleft)
+              else:
+                pygame.draw.rect(screen, (80, 255, 120), rect)
 
       # Player movement range
       for mx, my in self.get_move_range(self.player_pos):
