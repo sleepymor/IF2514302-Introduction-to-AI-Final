@@ -1,4 +1,4 @@
-# src/env/environment.py
+# src/environment/environment.py
 import os
 import copy
 import pygame
@@ -21,19 +21,6 @@ class TacticalEnvironment:
     """
     
     def __init__(self, width=10, height=10, num_walls=10, num_traps=5, seed=None, use_assets=False, tile_dir="assets/tiles", char_dir="assets/characters"):
-        """
-        Initialize the tactical environment.
-          
-          Args:
-              width: Grid width in tiles
-              height: Grid height in tiles
-              num_walls: Number of wall obstacles to generate
-              num_traps: Number of trap tiles to generate
-              seed: Random seed for environment generation (None for random)
-              use_assets: Whether to load image assets or use colored rectangles
-              tile_dir: Directory path for tile textures
-              char_dir: Directory path for character textures
-        """
         self.width = width
         self.height = height
 
@@ -60,26 +47,7 @@ class TacticalEnvironment:
         self.reset()
 
     def load_textures(self):
-        """
-        Load all texture assets from disk with fallback to solid colors.
-        Only called once during initialization to optimize performance.
-        
-        Returns:
-            dict: Dictionary mapping entity names to pygame Surfaces
-        """
         def load_image(folder, name, fallback_color, size=(TILE_SIZE, TILE_SIZE)):
-            """
-            Load a single image with fallback to colored surface.
-            
-            Args:
-                folder: Directory containing the image
-                name: Filename of the image
-                fallback_color: RGB tuple to use if image not found
-                size: Target size for the image
-                
-            Returns:
-                pygame.Surface: Loaded and scaled image or colored surface
-            """
             path = os.path.join(folder, name)
             if os.path.exists(path):
                 img = pygame.image.load(path).convert_alpha()
@@ -98,143 +66,78 @@ class TacticalEnvironment:
         }
 
     def reset(self):
-      """
-      Reset the environment to initial state.
-      Generates a new map layout and resets turn to player.
-      """
-      (self.grid, self.player_pos, self.enemy_pos, self.goal, 
-        self.walls, self.traps) = generate_environment(
-          self.width, self.height, self.num_walls, self.num_traps, self.seed
-      )
-      self.turn = 'player'
+        """
+        Reset the environment to initial state.
+        """
+        (self.grid, self.player_pos, self.enemy_pos, self.goal, 
+         self.walls, self.traps) = generate_environment(
+             self.width, self.height, self.num_walls, self.num_traps, self.seed
+        )
+        self.turn = 'player'
 
-      self._cached_player_moves = None
-      self._cached_enemy_moves = None
-      
-      if self.seed is not None:
-          random.seed(None)
+        self._cached_player_moves = None
+        self._cached_enemy_moves = None
+        
+        if self.seed is not None:
+            random.seed(None)
 
     def in_bounds(self, x, y):
-      """
-      Check if coordinates are within grid boundaries.
-      
-      Args:
-          x: X coordinate
-          y: Y coordinate
-          
-      Returns:
-          bool: True if position is within grid bounds
-      """
-      return 0 <= x < self.width and 0 <= y < self.height
+        return 0 <= x < self.width and 0 <= y < self.height
 
     def is_blocked(self, x, y):
-      """
-      Check if a tile is blocked by a wall.
-      
-      Args:
-          x: X coordinate
-          y: Y coordinate
-          
-      Returns:
-          bool: True if position contains a wall
-      """
-      return (x, y) in self.walls
-
-    # def get_move_range(self, pos, move_range=3):
-    #   """
-    #   Calculate all valid tiles within movement range using Manhattan distance.
-      
-    #   Args:
-    #       pos: Current position as (x, y) tuple
-    #       move_range: Maximum movement distance (default 3 for player, 2 for enemy)
-          
-    #   Returns:
-    #       set: Set of (x, y) tuples representing reachable tiles
-    #   """
-    #   x, y = pos
-    #   tiles = set()
-
-    #   for dx in range(-move_range, move_range + 1):
-    #     for dy in range(-move_range, move_range + 1):
-    #       nx, ny = x + dx, y + dy
-    #       manhattan_dist = abs(dx) + abs(dy)
-              
-    #       if self.in_bounds(nx, ny) and manhattan_dist <= move_range and not self.is_blocked(nx, ny):
-    #         tiles.add((nx, ny))
-
-    #       # euclidean_dist = math.dist((0, 0), (dx, dy))
-
-    #       # if self.in_bounds(nx, ny) and euclidean_dist <= move_range and not self.is_blocked(nx, ny):
-    #       #   tiles.add((nx, ny))
-
-    #   tiles.discard(tuple(pos))
-    #   return tiles
+        return (x, y) in self.walls
 
     def get_move_range(self, pos, move_range=3):
-      
+        """
+        Calculate all valid tiles within movement range using BFS.
+        """
+        queue = deque([(pos, 0)])
+        visited = {tuple(pos)}
+        reachable = set()
 
-      queue = deque([(pos, 0)])
-      visited = {tuple(pos)}
+        while queue:
+            (x, y), dist = queue.popleft()
 
-      reachable = set()
+            if dist > move_range:
+                continue
 
-      while queue:
-        (x, y), dist = queue.popleft()
+            reachable.add((x, y))
 
-        if dist > move_range:
-          continue
+            for dx, dy in [(1,0),(-1,0),(0,1),(0,-1)]:
+                nx, ny = x + dx, y + dy
 
-        reachable.add((x, y))
+                if not self.in_bounds(nx, ny):
+                    continue
 
-        for dx, dy in [(1,0),(-1,0),(0,1),(0,-1)]:
-          nx, ny = x + dx, y + dy
+                if (nx, ny) in visited:
+                    continue
 
-          if not self.in_bounds(nx, ny):
-              continue
+                if self.is_blocked(nx, ny):
+                    continue
 
-          if (nx, ny) in visited:
-              continue
+                visited.add((nx, ny))
+                queue.append(((nx, ny), dist + 1))
 
-          if self.is_blocked(nx, ny):
-              continue
-
-          visited.add((nx, ny))
-          queue.append(((nx, ny), dist + 1))
-
-      reachable.remove(tuple(pos))  # remove origin if you want
-      return reachable
+        reachable.remove(tuple(pos))  # remove origin
+        return reachable
 
 
     def move_unit(self, pos, target):
-      """
-      Attempt to move a unit to target position.
-      Validates that target is in bounds and not blocked.
-      
-      Args:
-          pos: Current position as list [x, y]
-          target: Target position as tuple (x, y)
-          
-      Returns:
-          list: New position [x, y] if valid, otherwise original position
-      """
-      if not self.in_bounds(*target) or self.is_blocked(*target):
-          return pos
-      return list(target)
+        if not self.in_bounds(*target) or self.is_blocked(*target):
+            return pos
+        return list(target)
 
     def is_terminal(self):
-      """
-      Check if the game is in a terminal state (win/loss).
-      
-      Returns:
-          tuple: (is_terminal: bool, reason: str or None)
-      """
-      if tuple(self.player_pos) == self.goal:
-          return (True, "goal")
-      elif tuple(self.player_pos) in self.traps:
-          return (True, "trap")
-      elif tuple(self.enemy_pos) == tuple(self.player_pos):
-          return (True, "caught")
-      return (False, None)
+        """
+        Check if the game is in a terminal state (win/loss).
+        """
+        if tuple(self.player_pos) == self.goal:
+            return (True, "goal")
+        elif tuple(self.player_pos) in self.traps:
+            return (True, "trap")
+        elif tuple(self.enemy_pos) == tuple(self.player_pos):
+            return (True, "caught")
+        return (False, None)
 
     def spawn_trap(self):
         empty_tiles = [
@@ -259,15 +162,49 @@ class TacticalEnvironment:
         
 
     def step(self, action, simulate=False):
-      """
+        """
         Execute one turn of the game.
         Handles player/enemy movement and state transitions.
         
-        Args:
-          action: Target position tuple (x, y) or None to skip turn
-          simulate: If True, don't auto-reset on terminal states (for MCTS/AI)
-                    If False, reset immediately on win/loss (for gameplay)
+        UPDATE: Menghapus auto-reset dan print spam agar kompatibel dengan AI Simulation.
+        """
+        self._cached_player_moves = None
+        self._cached_enemy_moves = None
+
+        if self.turn == 'player':
+            # Player action
+            if action is not None:
+                move_tiles = self.get_move_range(self.player_pos)
+                if tuple(action) in move_tiles:
+                    self.player_pos = self.move_unit(self.player_pos, action)
+
+            # Cek Terminal setelah bergerak
+            is_terminal, reason = self.is_terminal()
+            if is_terminal:
+                # LANGSUNG RETURN STATUS, JANGAN RESET DI SINI
+                return (True, reason)
+
+            self.turn = 'enemy'
+
+
+        elif self.turn == 'enemy':
+            # Enemy action
+            if action is not None:
+                enemy_moves_tiles = self.get_move_range(self.enemy_pos)
+                if tuple(action) in enemy_moves_tiles:
+                    self.enemy_pos = self.move_unit(self.enemy_pos, action)
+
+            # Cek Terminal setelah bergerak
+            is_terminal, reason = self.is_terminal()
+            if is_terminal:
+                # LANGSUNG RETURN STATUS, JANGAN RESET DI SINI
+                return (True, reason)
+            
+            self.turn = 'player'
         
+<<<<<<< HEAD
+        # Jika game belum selesai
+=======
         Returns:
           tuple or None: (is_terminal, reason) if simulate=True, else None
       """
@@ -321,38 +258,71 @@ class TacticalEnvironment:
       return
 
       if simulate: 
+>>>>>>> 698d9f507b39de653514052a5ca4174be31f9edf
         return (False, None)
     
     def get_valid_actions(self, unit='current'):
-      """
-      Get all valid actions for a unit (useful for AI/MCTS).
-      
-      Args:
-          unit: 'current' (current turn), 'player', or 'enemy'
-          
-      Returns:
-          set: Set of valid move positions
-      """
-      if unit == 'current':
-          unit = self.turn
-      
-      if unit == 'player':
-          return self.get_move_range(self.player_pos, move_range=3)
-      elif unit == 'enemy':
-          return self.get_move_range(self.enemy_pos, move_range=3)
-      
-      return set()
+        if unit == 'current':
+            unit = self.turn
+        
+        if unit == 'player':
+            return self.get_move_range(self.player_pos, move_range=3)
+        elif unit == 'enemy':
+            return self.get_move_range(self.enemy_pos, move_range=3)
+        
+        return set()
 
 
     def draw(self, screen):
-      """
-      Render the entire game state to screen.
-      Draws grid, tiles, movement ranges, and units.
-      
-      Args:
-        screen: pygame Surface to draw on
-      """
+        """
+        Render the entire game state to screen.
+        """
+        # Draw grid and tiles
+        for y in range(self.height):
+            for x in range(self.width):
+                rect = pygame.Rect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE)
 
+<<<<<<< HEAD
+                # Draw grid lines
+                pygame.draw.rect(screen, GRID_COLOR, rect, 1)
+
+                # Draw coordinate labels
+                if self.coordinate_font:
+                    text = self.coordinate_font.render(f"{x},{y}", True, (100, 100, 150))
+                    screen.blit(text, (x * TILE_SIZE + 2, y * TILE_SIZE + 2))
+                
+                if (x, y) in self.walls:
+                    if self.use_assets:
+                        screen.blit(self.textures['wall'], rect.topleft)
+                    else:
+                        pygame.draw.rect(screen, (100, 100, 100), rect)
+
+                elif (x, y) in self.traps:
+                    if self.use_assets:
+                        screen.blit(self.textures['trap'], rect.topleft)
+                    else:
+                        pygame.draw.rect(screen, (200, 50, 200), rect)
+                    
+                elif (x, y) == self.goal:
+                    if self.use_assets:
+                        screen.blit(self.textures['goal'], rect.topleft)
+                    else:
+                        pygame.draw.rect(screen, (80, 255, 120), rect)
+
+        # Player movement range
+        for mx, my in self.get_move_range(self.player_pos):
+            rect = pygame.Rect(mx*TILE_SIZE, my*TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
+            surf.fill(MOVE_RANGE_COLOR)
+            screen.blit(surf, rect.topleft)
+
+        # Enemy movement range
+        for ex, ey in self.get_move_range(self.enemy_pos, move_range=2):
+            rect = pygame.Rect(ex*TILE_SIZE, ey*TILE_SIZE, TILE_SIZE, TILE_SIZE)
+            surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
+            surf.fill(ENEMY_MOVE_RANGE_COLOR)
+            screen.blit(surf, rect.topleft)
+=======
         # Draw grid and tiles
       for y in range(self.height):
           for x in range(self.width):
@@ -384,55 +354,31 @@ class TacticalEnvironment:
                 screen.blit(self.textures['goal'], rect.topleft)
               else:
                 pygame.draw.rect(screen, (80, 255, 120), rect)
+>>>>>>> 698d9f507b39de653514052a5ca4174be31f9edf
 
-      # Player movement range
-      for mx, my in self.get_move_range(self.player_pos):
-        rect = pygame.Rect(mx*TILE_SIZE, my*TILE_SIZE, TILE_SIZE, TILE_SIZE)
-        surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
-        surf.fill(MOVE_RANGE_COLOR)
-        screen.blit(surf, rect.topleft)
-
-      # Enemy movement range
-      for ex, ey in self.get_move_range(self.enemy_pos, move_range=2):
-        rect = pygame.Rect(ex*TILE_SIZE, ey*TILE_SIZE, TILE_SIZE, TILE_SIZE)
-        surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
-        surf.fill(ENEMY_MOVE_RANGE_COLOR)
-        screen.blit(surf, rect.topleft)
-
-      if self.use_assets:
-          screen.blit(self.textures['player'], (self.player_pos[0]*TILE_SIZE, self.player_pos[1]*TILE_SIZE))
-          screen.blit(self.textures['enemy'], (self.enemy_pos[0]*TILE_SIZE, self.enemy_pos[1]*TILE_SIZE))
-      else:
-          pygame.draw.rect(screen, (80, 180, 255), (self.player_pos[0]*TILE_SIZE, self.player_pos[1]*TILE_SIZE, TILE_SIZE, TILE_SIZE))
-          pygame.draw.rect(screen, (255, 80, 80), (self.enemy_pos[0]*TILE_SIZE, self.enemy_pos[1]*TILE_SIZE, TILE_SIZE, TILE_SIZE))
+        if self.use_assets:
+            screen.blit(self.textures['player'], (self.player_pos[0]*TILE_SIZE, self.player_pos[1]*TILE_SIZE))
+            screen.blit(self.textures['enemy'], (self.enemy_pos[0]*TILE_SIZE, self.enemy_pos[1]*TILE_SIZE))
+        else:
+            pygame.draw.rect(screen, (80, 180, 255), (self.player_pos[0]*TILE_SIZE, self.player_pos[1]*TILE_SIZE, TILE_SIZE, TILE_SIZE))
+            pygame.draw.rect(screen, (255, 80, 80), (self.enemy_pos[0]*TILE_SIZE, self.enemy_pos[1]*TILE_SIZE, TILE_SIZE, TILE_SIZE))
 
     def clone(self):
-      """
+        """
         Create a deep copy of the environment.
-        Useful for MCTS simulations and game tree search.
+        """
+        # 1. Shallow copy
+        cloned = copy.copy(self)
+
+        # 2. Deep copy data dinamis
+        cloned.player_pos = list(self.player_pos)
+        cloned.enemy_pos = list(self.enemy_pos)
         
-        Returns:
-          TacticalEnvironment: Independent copy of current state
-      """
-      # 1. Buat 'shallow copy'. Ini sangat cepat.
-      # Objek Pygame (textures, font) dan data statis (walls, grid)
-      # tidak akan di-deepcopy, hanya referensinya yang disalin.
-      cloned = copy.copy(self)
+        # 3. Reset cache di klon
+        cloned._cached_player_moves = None
+        cloned._cached_enemy_moves = None
 
-      # 2. Duplikasi data dinamis secara eksplisit.
-      # 'player_pos' dan 'enemy_pos' adalah list, jadi kita
-      # harus membuat salinan baru (menggunakan list()) agar
-      # klon ini tidak mengubah posisi di state aslinya.
-      cloned.player_pos = list(self.player_pos)
-      cloned.enemy_pos = list(self.enemy_pos)
-      
-      # 3. Hapus cache di klon
-      # Memastikan klon yang baru tidak menggunakan cache dari state sebelumnya.
-      cloned._cached_player_moves = None
-      cloned._cached_enemy_moves = None
+        # Copy turn
+        cloned.turn = self.turn
 
-      # 'self.turn' (string) dan 'self.goal' (tuple)
-      # tidak perlu disalin secara eksplisit, tapi ini aman.
-      cloned.turn = self.turn
-
-      return cloned
+        return cloned
