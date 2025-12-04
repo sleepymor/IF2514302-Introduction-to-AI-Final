@@ -23,7 +23,7 @@ def main():
 
     # 2. Inisialisasi Agent
     # Ganti algorithm="MINIMAX" atau "ALPHABETA" atau "MCTS" sesuai kebutuhan
-    playerAgent = PlayerAgent(env, algorithm="MINIMAX") 
+    playerAgent = PlayerAgent(env, algorithm="MCTS") 
     enemyAgent = EnemyAgent(env)
 
     running = True

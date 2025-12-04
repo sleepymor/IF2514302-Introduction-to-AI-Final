@@ -7,6 +7,7 @@ class EnemyAgent():
     self.move_range = 2
 
   def action(self):
+    """Calculate and return the next enemy action using A* pathfinding."""
     a_star = AStar(env=self.env)
 
     start = tuple(self.env.enemy_pos)
@@ -16,7 +17,7 @@ class EnemyAgent():
 
     if path is None or len(path) <= 1:
       return start
-    
+
     path = path[1:]
 
     index = min(self.move_range - 1, len(path) - 1)
@@ -26,7 +27,7 @@ class EnemyAgent():
 
     # if next_step in enemy_range:
     #   return next_step
-    
+
     # best_tile = None
     # best_dist = float("inf")
 
