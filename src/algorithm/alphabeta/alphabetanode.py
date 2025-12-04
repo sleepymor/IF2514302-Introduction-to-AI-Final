@@ -2,8 +2,7 @@ from environment.environment import TacticalEnvironment
 
 class AlphaBetaNode:
     """
-    Node Alpha-Beta yang diperbaiki dengan logika 'Repulsion Field'.
-    Player akan mencoba menghindari musuh dari jarak jauh dan mencari jalan aman.
+    SIMPLE AlphaBeta Node - FIXED VERSION
     """
     
     WIN_SCORE = 1_000_000
@@ -59,6 +58,14 @@ class AlphaBetaNode:
         import random
         score += random.uniform(0, 0.5)
 
+        # 9. PASTIKAN SCORE TIDAK 0!
+       
+        # PASTIKAN SCORE TIDAK 0!
+        # === TAMBAH INI ===
+        if -0.1 < score < 0.1:  # Jika score hampir 0
+            score += 0.3  # <-- PASTI 0.3  Tambah nilai kecil positif
+    
+            
         return score
 
     def get_legal_actions(self):
