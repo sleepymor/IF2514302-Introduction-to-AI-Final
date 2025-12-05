@@ -5,7 +5,7 @@ from agents.enemy import EnemyAgent
 
 def run_episode(seed=None):
     env = TacticalEnvironment(width=15, height=10, seed=32)
-    player = PlayerAgent(env, algorithm="ALPHABETA")
+    player = PlayerAgent(env, algorithm="MCTS")
     enemy = EnemyAgent(env)
 
     while True:
@@ -20,7 +20,7 @@ def run_episode(seed=None):
             return reason  # goal / trap / caught
 
 
-def evaluate(n=10):
+def evaluate(n=5):
     stats = {"goal": 0, "trap": 0, "caught": 0}
     for i in range(n):
         result = run_episode(seed=32)

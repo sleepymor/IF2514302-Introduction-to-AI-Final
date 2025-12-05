@@ -60,7 +60,6 @@ class TacticalEnvironment:
         self.enemy_draw_pos = None
 
         self.turn_counter = 0
-        self.trap_spawned = False
 
         self.textures = self.load_textures() if use_assets else None
 
@@ -189,7 +188,7 @@ class TacticalEnvironment:
     #   tiles.discard(tuple(pos))
     #   return tiles
 
-    def get_move_range(self, pos, move_range=2):
+    def get_move_range(self, pos, move_range=3):
 
         queue = deque([(pos, 0)])
         visited = {tuple(pos)}
@@ -253,23 +252,23 @@ class TacticalEnvironment:
             return (True, "caught")
         return (False, None)
 
-    # def spawn_trap(self):
-    #     empty_tiles = [
-    #       (x, y)
-    #       for x in range(self.width)
-    #       for y in range(self.height)
-    #       if (x, y) != tuple(self.player_pos)
-    #       and (x, y) != tuple(self.enemy_pos)
-    #       and (x, y) != self.goal
-    #       and (x, y) not in self.walls
-    #       and (x, y) not in self.traps
-    #     ]
+    def spawn_trap(self):
+        empty_tiles = [
+            (x, y)
+            for x in range(self.width)
+            for y in range(self.height)
+            if (x, y) != tuple(self.player_pos)
+            and (x, y) != tuple(self.enemy_pos)
+            and (x, y) != self.goal
+            and (x, y) not in self.walls
+            and (x, y) not in self.traps
+        ]
 
-    #     if not empty_tiles:
-    #        return
+        if not empty_tiles:
+            return
 
-    #     new_trap = random.choice(empty_tiles)
-    #     self.traps.add(new_trap)
+        new_trap = random.choice(empty_tiles)
+        self.traps.add(new_trap)
 
     def step(self, action, simulate=False):
         """
@@ -287,7 +286,7 @@ class TacticalEnvironment:
         self._cached_player_moves = None
         self._cached_enemy_moves = None
 
-        if self.turn == "player":
+        if self.turn == "player" and action is not None and not simulate:
             # Player action
             if action is not None:
                 move_tiles = self.get_move_range(self.player_pos)
@@ -326,9 +325,11 @@ class TacticalEnvironment:
 
             self.turn = "player"
 
-        # if not self.trap_spawned:
-        #    self.spawn_trap()
-        #    self.trap_spawned = True
+            self.turn_counter += 1
+
+            if self.turn_counter % 3 == 0:
+                print("Trap spawned on turn", self.turn_counter)
+                self.spawn_trap()
 
         if simulate:
             return (False, None)
@@ -347,9 +348,9 @@ class TacticalEnvironment:
             unit = self.turn
 
         if unit == "player":
-            return self.get_move_range(self.player_pos)
+            return self.get_move_range(self.player_pos, move_range=3)
         elif unit == "enemy":
-            return self.get_move_range(self.enemy_pos)
+            return self.get_move_range(self.enemy_pos, move_range=3)
 
         return set()
 
@@ -403,7 +404,7 @@ class TacticalEnvironment:
             screen.blit(surf, rect.topleft)
 
         # Enemy movement range
-        for ex, ey in self.get_move_range(self.enemy_pos):
+        for ex, ey in self.get_move_range(self.enemy_pos, move_range=2):
             rect = pygame.Rect(ex * TILE_SIZE, ey * TILE_SIZE, TILE_SIZE, TILE_SIZE)
             surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
             surf.fill(ENEMY_MOVE_RANGE_COLOR)
