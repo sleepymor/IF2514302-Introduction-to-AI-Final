@@ -9,6 +9,7 @@ class EnemyAgent:
         self.move_range = 2
 
     def action(self):
+        """Calculate and return the next enemy action using A* pathfinding."""
         a_star = AStar(env=self.env)
 
         start = tuple(self.env.enemy_pos)

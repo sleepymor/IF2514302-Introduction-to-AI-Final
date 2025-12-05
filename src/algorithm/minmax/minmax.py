@@ -27,7 +27,7 @@ class MinimaxSearch:
         if (self.use_improvements and 
             len(self.move_history) >= 4 and 
             self.move_history[-2:] == self.move_history[-4:-2]):
-            log.info("🔄 Pattern detected - using diversified move")
+            log.info("Pattern detected - using diversified move")
             recent_actions = set(self.move_history[-2:])
             diverse_actions = [a for a in legal_actions if a not in recent_actions]
             if diverse_actions:

@@ -1,19 +1,15 @@
 import random
+
 from environment.environment import TacticalEnvironment
 from algorithm.mcts.mcts import MCTS
 from algorithm.alphabeta.alphabeta import AlphaBetaSearch
-
-# --- TAMBAHAN 1: Import Minimax ---
 from algorithm.minimax.minimax import MinimaxSearch
-
-# from algorithm.minmax.minmax import minmax
 from utils.logger import Logger
 
 
 class PlayerAgent:
+    """Player AI agent that supports multiple search algorithms."""
 
-    # PERBAIKANNYA ADA DISINI:
-    # Perhatikan bagaimana __init__ sekarang menerima "algoritma MTCS"
     def __init__(self, env: TacticalEnvironment, algorithm="MCTS"):
         self.env = env
         self.algorithm_choice = algorithm
@@ -21,7 +17,7 @@ class PlayerAgent:
 
         # --- Parameter Algoritma ---
         mcts_iterations = 1500
-        mcts_sim_depth = 40
+        mcts_sim_depth = 80
         alphabeta_max_depth = 6
         minimax_max_depth = 4  # Minimax biasanya lebih berat, depth dikurangi sedikit
 
@@ -37,9 +33,6 @@ class PlayerAgent:
         self.log.info("Initializing MinimaxSearch algorithm...")
         self.minimax_search = MinimaxSearch(max_depth=minimax_max_depth)
 
-        # self.log.info("Initializing MinMax algorithm...")
-        # self.minmax_search = Minimax(max_depth=minmax_max_depth)
-
         # --- Konfirmasi Pilihan Algoritma ---
         if self.algorithm_choice == "MCTS":
             self.log.info(f"--- PlayerAgent using: MCTS ---")
@@ -47,8 +40,6 @@ class PlayerAgent:
             self.log.info(f"--- PlayerAgent using: AlphaBeta ---")
         elif self.algorithm_choice == "MINIMAX":  # <-- Tambahan Log
             self.log.info(f"--- PlayerAgent using: Minimax ---")
-        elif self.algorithm_choice == "MINMAX":
-            self.log.info(f"--- PlayerAgent using: MinMax (Original) ---")
         else:
             self.log.warning(
                 f"Unknown algorithm '{self.algorithm_choice}'. Defaulting to MCTS."
@@ -56,6 +47,7 @@ class PlayerAgent:
             self.algorithm_choice = "MCTS"
 
     def action(self) -> tuple:
+        """Execute player action based on selected algorithm."""
         current_state = self.env.clone()
         best_action = None
 
@@ -68,18 +60,12 @@ class PlayerAgent:
             self.log.info("AlphaBeta is thinking...")
             best_action = self.alphabeta_search.search(current_state)
 
-        # --- TAMBAHAN 3: Panggil Minimax ---
         elif self.algorithm_choice == "MINIMAX":
             self.log.info("Minimax is thinking...")
             best_action = self.minimax_search.search(current_state)
 
-        elif self.algorithm_choice == "MINMAX":
-            self.log.info("MinMax (Original) is thinking...")
-            best_action = self.minmax_search.search(current_state)
-
         # --- Fallback ---
         if best_action is None:
-            # ... (kode fallback sama seperti sebelumnya)
             legal_actions = list(self.env.get_valid_actions(unit="current"))
             if legal_actions:
                 best_action = random.choice(legal_actions)
