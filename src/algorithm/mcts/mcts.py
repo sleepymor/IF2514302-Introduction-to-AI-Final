@@ -1,7 +1,7 @@
 import numpy as np
 import random
 import math
-
+from environment.environment import TacticalEnvironment
 from algorithm.mcts.mctsnode import MCTSNode
 from algorithm.astar.astar import AStar
 from utils.logger import Logger
@@ -123,28 +123,11 @@ class MCTS:
 
         for _ in range(self.max_sim_depth):
             if state.turn == "player":
-                # Kebijakan Player: Campuran Cerdas & Random
-                legal = list(state.get_valid_actions(unit="current"))
-                if not legal:
-                    break
-
-                # 70% coba maju ke goal, 30% random (eksplorasi)
-                action = random.choice(legal)
-                if random.random() < 0.7:
-                    best_dist = float("inf")
-                    goal = state.goal
-                    # Cari langkah terdekat ke goal secara Manhattan
-                    for a in legal:
-                        d = abs(a[0] - goal[0]) + abs(a[1] - goal[1])
-                        if d < best_dist:
-                            best_dist = d
-                            action = a
-
-                state.step(action, simulate=True)
+                player_action = self._player_policy(state)
+                state.step(player_action, simulate=True)
 
             elif state.turn == "enemy":
-                # Kebijakan Musuh
-                enemy_action = self.fast_enemy_policy(state)
+                enemy_action = self._enemy_policy(state)
                 state.step(enemy_action, simulate=True)
 
             is_term, reason = state.is_terminal()
@@ -153,23 +136,58 @@ class MCTS:
 
         return self.rollout_reward(state, reason=None)
 
-    def fast_enemy_policy(self, state):
+    def _player_policy(self, state: TacticalEnvironment):
+        goal = tuple(state.goal)
+        player = tuple(state.player_pos)
+        enemy = tuple(state.enemy_pos)
+
+        legal_moves = list(state.get_valid_actions(unit="current"))
+        if not legal_moves:
+            return None
+
+        # Direct finish if reachable
+        if goal in legal_moves:
+            return goal
+
+        def manhattan(a, b):
+            return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+        best_action = None
+        best_score = float("-inf")
+
+        for move in legal_moves:
+            score = 0
+
+            dist_to_goal_now = manhattan(player, goal)
+            dist_to_goal_next = manhattan(move, goal)
+            score += (dist_to_goal_now - dist_to_goal_next) * 10
+
+            dist_enemy_next = manhattan(move, enemy)
+            if dist_enemy_next <= 1:
+                score -= 100
+            elif dist_enemy_next <= 2:
+                score -= 20
+
+            score += random.uniform(0, 0.1)
+
+            if score > best_score:
+                best_score = score
+                best_action = move
+
+        return best_action
+
+    def _enemy_policy(self, state):
         """Fast enemy policy for simulation."""
         enemy_pos = tuple(state.enemy_pos)
-        player_pos = tuple(state.player_pos)  # <--- PERBAIKAN 1: Pastikan Tuple
+        player_pos = tuple(state.player_pos)
 
-        # Ambil range 2
         legal_moves = list(state.get_move_range(state.enemy_pos, move_range=2))
 
-        # 1. KILL INSTANT
-        # Sekarang pengecekan ini AKURAT karena tipe datanya sama (Tuple vs Set of Tuples)
         if player_pos in legal_moves:
             return player_pos
 
-        # 2. CHASE (Greedy)
         best_move = enemy_pos
         min_dist = float("inf")
-        random.shuffle(legal_moves)
 
         for move in legal_moves:
             dist = abs(move[0] - player_pos[0]) + abs(move[1] - player_pos[1])
@@ -183,33 +201,27 @@ class MCTS:
         """Calculate reward for rollout."""
         # 1. Menang/Kalah Mutlak
         if reason == "goal":
-            return 1.0
+            return 100.0
         if reason == "trap" or reason == "caught":
-            return 0.0
+            return -100.0
 
-        # 2. Heuristic Score (0.0 - 0.9)
-        player_pos = tuple(state.player_pos)  # Pastikan Tuple
+        player_pos = tuple(state.player_pos)
         enemy_pos = tuple(state.enemy_pos)
         goal_pos = state.goal
 
         dist_goal = abs(player_pos[0] - goal_pos[0]) + abs(player_pos[1] - goal_pos[1])
         max_dist = state.width + state.height
 
-        # Base Score: Progres ke Goal (Max 0.8)
         score = 0.1 + 0.7 * (1.0 - (dist_goal / max_dist))
 
-        # --- PERBAIKAN 2: Penalti Jarak Aman (Social Distancing) ---
-        # Jika jarak ke musuh <= 3 langkah, kurangi nilai heuristiknya.
-        # Ini memaksa AI memilih jalur yang TIDAK MEPET musuh,
-        # meskipun jalur mepet itu lebih dekat ke goal.
         dist_enemy = abs(player_pos[0] - enemy_pos[0]) + abs(
             player_pos[1] - enemy_pos[1]
         )
 
         if dist_enemy <= 2:
-            score *= 0.1  # HANCURKAN skornya jika sangat dekat (Zona Maut)
-        elif dist_enemy <= 3:
-            score *= 0.5  # Potong skor 50% jika agak dekat (Zona Waspada)
+            score *= 0.5
+        elif dist_enemy < 3:
+            score *= 0.8
 
         return max(0.0, min(0.9, score))
 

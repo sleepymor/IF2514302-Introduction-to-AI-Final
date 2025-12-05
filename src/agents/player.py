@@ -16,7 +16,7 @@ class PlayerAgent:
         self.log = Logger("PlayerAgent")
 
         # --- Parameter Algoritma ---
-        mcts_iterations = 1500
+        mcts_iterations = 350
         mcts_sim_depth = 80
         alphabeta_max_depth = 6
         minimax_max_depth = 4  # Minimax biasanya lebih berat, depth dikurangi sedikit

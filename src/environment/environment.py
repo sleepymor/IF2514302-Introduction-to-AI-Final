@@ -325,11 +325,11 @@ class TacticalEnvironment:
 
             self.turn = "player"
 
-            self.turn_counter += 1
+            # self.turn_counter += 1
 
-            if self.turn_counter % 3 == 0:
-                print("Trap spawned on turn", self.turn_counter)
-                self.spawn_trap()
+            # if self.turn_counter % 3 == 0:
+            #     print("Trap spawned on turn", self.turn_counter)
+            #     self.spawn_trap()
 
         if simulate:
             return (False, None)
@@ -350,7 +350,7 @@ class TacticalEnvironment:
         if unit == "player":
             return self.get_move_range(self.player_pos, move_range=3)
         elif unit == "enemy":
-            return self.get_move_range(self.enemy_pos, move_range=3)
+            return self.get_move_range(self.enemy_pos, move_range=2)
 
         return set()
 
