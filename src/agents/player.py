@@ -16,13 +16,15 @@ class PlayerAgent:
         self.log = Logger("PlayerAgent")
 
         # --- Parameter Algoritma ---
-        mcts_iterations = 1500
+        mcts_iterations = 350
         mcts_sim_depth = 80
         alphabeta_max_depth = 6
         minimax_max_depth = 4  # Minimax biasanya lebih berat, depth dikurangi sedikit
 
         self.log.info("Initializing MCTS algorithm...")
-        self.mcts_search = MCTS(iterations=mcts_iterations, max_sim_depth=mcts_sim_depth)
+        self.mcts_search = MCTS(
+            iterations=mcts_iterations, max_sim_depth=mcts_sim_depth
+        )
 
         self.log.info("Initializing AlphaBetaSearch algorithm...")
         self.alphabeta_search = AlphaBetaSearch(max_depth=alphabeta_max_depth)
@@ -39,7 +41,9 @@ class PlayerAgent:
         elif self.algorithm_choice == "MINIMAX":  # <-- Tambahan Log
             self.log.info(f"--- PlayerAgent using: Minimax ---")
         else:
-            self.log.warning(f"Unknown algorithm '{self.algorithm_choice}'. Defaulting to MCTS.")
+            self.log.warning(
+                f"Unknown algorithm '{self.algorithm_choice}'. Defaulting to MCTS."
+            )
             self.algorithm_choice = "MCTS"
 
     def action(self) -> tuple:
@@ -62,7 +66,7 @@ class PlayerAgent:
 
         # --- Fallback ---
         if best_action is None:
-            legal_actions = list(self.env.get_valid_actions(unit='current'))
+            legal_actions = list(self.env.get_valid_actions(unit="current"))
             if legal_actions:
                 best_action = random.choice(legal_actions)
             else:

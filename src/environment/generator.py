@@ -7,7 +7,7 @@ def generate_environment(width, height, num_walls, num_traps, seed=None):
     Generate Tactical Grid-based Environment
 
     Steps:
-    
+
     1. Use Random Seed if one not Picked
         -If user provide seed value, random number generator will initialize with the seed given.
         This seed ensure reproducible map generation.
