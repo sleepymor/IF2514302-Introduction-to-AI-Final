@@ -199,7 +199,7 @@ class MCTS:
 
     def rollout_reward(self, state, reason):
         """Calculate reward for rollout."""
-        # 1. Menang/Kalah Mutlak
+
         if reason == "goal":
             return 100.0
         if reason == "trap" or reason == "caught":
