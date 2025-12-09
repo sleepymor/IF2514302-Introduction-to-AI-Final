@@ -21,7 +21,7 @@ def main():
     log = Logger("MainGame")
 
     # Ganti algorithm="MINIMAX" atau "ALPHABETA" atau "MCTS" sesuai kebutuhan
-    playerAgent = PlayerAgent(env, algorithm="MCTS")
+    playerAgent = PlayerAgent(env, algorithm="MINIMAX")
     enemyAgent = EnemyAgent(env)
 
     running = True
