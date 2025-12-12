@@ -286,7 +286,7 @@ class TacticalEnvironment:
         self._cached_player_moves = None
         self._cached_enemy_moves = None
 
-        if self.turn == "player" and action is not None and not simulate:
+        if self.turn == "player" and action is not None:
             # Player action
             if action is not None:
                 move_tiles = self.get_move_range(self.player_pos)
