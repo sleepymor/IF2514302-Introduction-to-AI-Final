@@ -1,97 +1,189 @@
 import pygame
 import random
+import os
+import time
+from multiprocessing import Pool
+from typing import Any, Dict, Tuple
 
 from environment.environment import TacticalEnvironment
 from agents.enemy import EnemyAgent
 from agents.player import PlayerAgent
 from utils.logger import Logger
 
+# Worker function must be importable at module top-level (for Windows spawn)
+def run_agent_action_worker(args: Tuple[str, str, Dict[str, Any]]):
+    """
+    Worker that receives (agent_type, algorithm_choice, env_snapshot)
+    Reconstructs a TacticalEnvironment from the snapshot, creates the agent,
+    runs the agent.action() and returns the action.
+    """
+    agent_type, algorithm_choice, snap = args
+
+    # Reconstruct environment (avoid pygame assets)
+    env = TacticalEnvironment(
+        width=snap["width"],
+        height=snap["height"],
+        num_walls=snap.get("num_walls", 0),
+        num_traps=snap.get("num_traps", 0),
+        seed=None,
+        use_assets=False,
+    )
+    env.grid = snap["grid"]
+    env.player_pos = list(snap["player_pos"])
+    env.enemy_pos = list(snap["enemy_pos"])
+    env.goal = snap["goal"]
+    env.walls = set(snap["walls"])
+    env.traps = set(snap["traps"])
+    env.turn = snap["turn"]
+
+    # Run the chosen agent
+    if agent_type == "player":
+        agent = PlayerAgent(env, algorithm=algorithm_choice)
+    else:
+        agent = EnemyAgent(env)
+
+    try:
+        action = agent.action()
+    except Exception:
+        # Ensure worker returns a reasonable fallback action on error
+        action = tuple(env.player_pos) if agent_type == "player" else tuple(env.enemy_pos)
+
+    # Normalize to tuple
+    if isinstance(action, list):
+        action = tuple(action)
+    return action
+
+
+def make_env_snapshot(env: TacticalEnvironment) -> dict:
+    """
+    Create a small, picklable snapshot of the environment state for workers.
+    Avoids passing pygame Surfaces or font objects.
+    """
+    return {
+        "width": env.width,
+        "height": env.height,
+        "num_walls": env.num_walls,
+        "num_traps": env.num_traps,
+        "grid": env.grid,
+        "player_pos": list(env.player_pos),
+        "enemy_pos": list(env.enemy_pos),
+        "goal": env.goal,
+        "walls": list(env.walls),
+        "traps": list(env.traps),
+        "turn": env.turn,
+    }
+
 
 def main():
-    """Main game loop."""
-    # 1. Inisialisasi Pygame dan Environment
+    """Main game loop with multiprocessing AI workers."""
+    # Initialize Pygame
     pygame.init()
 
-    # Setup Environment (bisa ubah seed=None untuk acak total)
+    # Setup Environment (seed can be None to randomize)
     env = TacticalEnvironment(width=15, height=10, seed=32)
-    random.seed(None)  # Reset random seed global agar AI tidak deterministik aneh
+    random.seed(None)
 
-    # Setup Layar
-    TILE_SIZE = 40  # Pastikan sama dengan di environment.py
+    # Screen setup
+    TILE_SIZE = 40
     screen = pygame.display.set_mode((env.width * TILE_SIZE, env.height * TILE_SIZE))
-    pygame.display.set_caption("Tactical AI: Minimax/AlphaBeta")
+    pygame.display.set_caption("Tactical AI: Minimax/AlphaBeta (multiprocessing)")
     clock = pygame.time.Clock()
 
     log = Logger("MainGame")
 
-    # 2. Inisialisasi Agent
-    # Ganti algorithm="MINIMAX" atau "ALPHABETA" atau "MCTS" sesuai kebutuhan
+    # Agents (we keep objects here for config, but worker will reconstruct env and agent)
     playerAgent = PlayerAgent(env, algorithm="MINIMAX")
     enemyAgent = EnemyAgent(env)
 
+    # Multiprocessing pool (create once)
+    cpu_count = os.cpu_count() or 2
+    pool = Pool(processes=min(cpu_count, 4))  # cap to reasonable number
+
+    # Pending async jobs storage
+    pending_future = None
+    pending_owner = None
+    pending_algorithm = None
+
     running = True
-    while running:
-        # --- Event Handling ---
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
+    try:
+        while running:
+            # --- Event Handling ---
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
 
-        # Variabel untuk menampung hasil langkah (default: tidak terminal)
-        step_result = (False, None)
+            # If there's no pending AI job and it's a turn, start one
+            if pending_future is None:
+                if env.turn == "player":
+                    # Start player's thinking in a worker
+                    snap = make_env_snapshot(env)
+                    args = ("player", playerAgent.algorithm_choice, snap)
+                    pending_future = pool.apply_async(run_agent_action_worker, (args,))
+                    pending_owner = "player"
+                    pending_algorithm = playerAgent.algorithm_choice
+                    log.info("Started player worker...")
+                elif env.turn == "enemy":
+                    snap = make_env_snapshot(env)
+                    args = ("enemy", "", snap)
+                    pending_future = pool.apply_async(run_agent_action_worker, (args,))
+                    pending_owner = "enemy"
+                    pending_algorithm = ""
+                    log.info("Started enemy worker...")
 
-        # --- Logika Giliran (Turn) ---
-        if env.turn == "player":
-            # 1. Minta Agent memilih langkah
-            action_x, action_y = playerAgent.action()
+            # If we have a pending job, poll it (non-blocking)
+            if pending_future is not None:
+                if pending_future.ready():
+                    try:
+                        action = pending_future.get(timeout=1)
+                    except Exception:
+                        # If something went wrong, fallback to no-op movement
+                        if pending_owner == "player":
+                            action = tuple(env.player_pos)
+                        else:
+                            action = tuple(env.enemy_pos)
 
-            # 2. Eksekusi langkah di environment
-            # env.step sekarang mengembalikan (is_terminal, reason)
-            step_result = env.step((action_x, action_y))
+                    # Execute the action in the environment (simulate=False so gameplay resets properly)
+                    env.step(action, simulate=True)
 
-            # log.info(f"Player moved to {(action_x, action_y)}")
+                    # Clear pending
+                    pending_future = None
+                    pending_owner = None
+                    pending_algorithm = None
 
-        elif env.turn == "enemy":
-            # 1. Minta Enemy memilih langkah
-            action_x, action_y = enemyAgent.action()
+                    # After step, check terminal and reset if necessary
+                    is_terminal, reason = env.is_terminal()
+                    if is_terminal:
+                        if reason == "goal":
+                            print("\n>>> VICTORY! You reached the goal. <<<\n")
+                            log.info("Result: WIN (Goal reached)")
+                        elif reason == "trap":
+                            print("\n>>> DEFEAT! You hit a trap. <<<\n")
+                            log.info("Result: LOSS (Hit trap)")
+                        elif reason == "caught":
+                            print("\n>>> DEFEAT! The enemy caught you. <<<\n")
+                            log.info("Result: LOSS (Caught by enemy)")
+                        # Brief pause so user can see final state
+                        pygame.display.flip()
+                        pygame.time.delay(1000)
+                        env.reset()
+                        print("--- Game Reset ---\n")
 
-            # 2. Eksekusi langkah
-            step_result = env.step((action_x, action_y))
-
-            # log.info("Enemy moved!")
-
-        # --- Logika Game Over / Reset (PENTING) ---
-        # Kita cek hasil dari step tadi
-        is_terminal, reason = step_result
-
-        if is_terminal:
-            # Tampilkan pesan berdasarkan alasan terminal
-            if reason == "goal":
-                print("\n>>> VICTORY! You reached the goal. <<<\n")
-                log.info("Result: WIN (Goal reached)")
-            elif reason == "trap":
-                print("\n>>> DEFEAT! You hit a trap. <<<\n")
-                log.info("Result: LOSS (Hit trap)")
-            elif reason == "caught":
-                print("\n>>> DEFEAT! The enemy caught you. <<<\n")
-                log.info("Result: LOSS (Caught by enemy)")
-
-            # Beri jeda sebentar agar user bisa melihat posisi terakhir
+            # Drawing
+            screen.fill((20, 20, 30))
+            env.draw(screen)
             pygame.display.flip()
-            pygame.time.delay(1000)  # Jeda 1 detik (1000 ms)
 
-            # Lakukan Reset Environment
-            env.reset()
-            print("--- Game Reset ---\n")
+            # Cap FPS
+            clock.tick(30)
 
-        # --- Drawing (Gambar ke Layar) ---
-        screen.fill((20, 20, 30))  # Warna Background
-        env.draw(screen)
-        pygame.display.flip()
-
-        # Batasi FPS (biar tidak terlalu cepat/panas)
-        clock.tick(30)
-
-    pygame.quit()
+    finally:
+        # Clean shutdown: close pool
+        try:
+            pool.close()
+            pool.join()
+        except Exception:
+            pool.terminate()
+        pygame.quit()
 
 
 if __name__ == "__main__":

@@ -38,9 +38,9 @@ class OptimizedTestRunner(TestRunner):
     def _reduce_algorithm_params(self):
         """Reduce algorithm parameters for faster benchmarking."""
         self.config.mcts_iterations = 800
-        self.config.mcts_sim_depth = 50
-        self.config.alphabeta_depth = 4
-        self.config.minimax_depth = 3
+        self.config.mcts_sim_depth = 20
+        self.config.alphabeta_depth = 20
+        self.config.minimax_depth = 20
 
 
 def run_single_game_worker(args):
@@ -84,14 +84,14 @@ def main():
     print("=" * 90 + "\n")
 
     config = ScoringConfig(
-        num_seeds=10,
-        tests_per_seed=2,
+        num_seeds=50,
+        tests_per_seed=5,
         algorithms=["MCTS", "ALPHABETA", "MINIMAX"],
         grid_width=15,
         grid_height=10,
         num_walls=10,
         num_traps=5,
-        max_turns=500,
+        max_turns=50,
     )
 
     print(f"Configuration:")
