@@ -1,4 +1,3 @@
-# MODIFIED: src/scoring/benchmark_optimized.py - Top of file
 """
 Optimized benchmark runner with multiprocessing and reduced logging.
 Entry point for running the complete benchmark suite faster.
@@ -10,10 +9,8 @@ import logging
 from pathlib import Path
 from multiprocessing import Pool
 
-# CRITICAL: Disable ALL logging BEFORE any imports from our code
 logging.disable(logging.CRITICAL)
 
-# Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scoring_config import ScoringConfig
@@ -86,7 +83,6 @@ def main():
     print("TACTICAL AI BENCHMARK (OPTIMIZED)")
     print("=" * 90 + "\n")
 
-    # Create configuration with REDUCED parameters for faster benchmarking
     config = ScoringConfig(
         num_seeds=10,
         tests_per_seed=2,
@@ -110,14 +106,12 @@ def main():
     if not HAS_TQDM:
         print("Note: Install tqdm for progress bars: pip install tqdm\n")
 
-    # Prepare work items for multiprocessing
     work_items = []
     for algorithm in config.algorithms:
         for seed in range(config.num_seeds):
             for test_num in range(config.tests_per_seed):
                 work_items.append((algorithm, seed, test_num, config))
 
-    # Run benchmark with multiprocessing
     print(f"[RUNNING] Starting {len(work_items)} tests with multiprocessing...")
 
     results = []
@@ -145,7 +139,7 @@ def main():
     # Export to Excel
     print("[EXPORTING] Preparing export...")
     exporter = ResultsExporter()
-    exporter.export_to_excel(results, "benchmark_results_optimized.xlsx")
+    exporter.export_to_excel(results, "benchmark_results.xlsx")
 
     print(f"✓ Benchmark Complete!")
     print(f"✓ Results saved to: {exporter.output_dir}")
