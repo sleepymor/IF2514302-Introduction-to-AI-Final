@@ -270,7 +270,7 @@ class TacticalEnvironment:
         new_trap = random.choice(empty_tiles)
         self.traps.add(new_trap)
 
-    def step(self, action, simulate=False):
+    def step(self, action, simulate=True):
         """
         Execute one turn of the game.
         Handles player/enemy movement and state transitions.
