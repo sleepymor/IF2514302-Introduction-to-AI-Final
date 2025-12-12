@@ -16,7 +16,7 @@ class AlphaBetaSearch:
 
         self.log.info(f"Available moves: {len(legal_actions)}")
 
-        best_score = -999999
+        best_score = float("-inf")
         best_action = legal_actions[0]
 
         # Coba semua action

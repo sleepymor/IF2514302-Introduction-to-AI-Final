@@ -1,87 +1,151 @@
 import random
 
+from environment.environment import TacticalEnvironment
 from algorithm.minimax.minimaxnode import MinimaxNode
 from utils.logger import Logger
 
 
 class MinimaxSearch:
-    """Minimax search algorithm implementation."""
+    """
+    Minimax search algorithm with normalized scoring.
 
-    def __init__(self, max_depth=3):
+    Implements standard Minimax algorithm with depth-limited search.
+    Evaluation scores are normalized to [0.0, 1.0] to match MCTS
+    reward system for fair comparison.
+
+    Attributes:
+        max_depth (int): Maximum search depth
+        log (Logger): Logger instance for debug output
+    """
+
+    def __init__(self, max_depth: int = 3):
+        """
+        Initialize Minimax search.
+
+        Args:
+            max_depth: Maximum search depth (default: 3)
+                      Recommended values:
+                      - depth=2: Fast but weak (~100ms)
+                      - depth=3: Balanced (~500ms)
+                      - depth=4: Strong but slow (~2-3s)
+        """
         self.max_depth = max_depth
         self.log = Logger("Minimax")
 
-    def search(self, state):
+    def search(self, state: TacticalEnvironment) -> tuple:
         """
-        Memulai pencarian Minimax untuk menemukan gerakan terbaik.
-        """
-        best_val = -float('inf')
-        best_action = None
+        Execute Minimax search to find best action.
 
-        legal_actions = list(state.get_valid_actions(unit='current'))
+        Starting from current state, evaluates all possible moves
+        up to max_depth and returns the action with highest minimax value.
+
+        Args:
+            state: Current game state
+
+        Returns:
+            tuple: Best action as (x, y) coordinates, or None if no legal moves
+        """
+        legal_actions = list(state.get_valid_actions(unit="current"))
 
         if not legal_actions:
+            self.log.warning("No legal actions available!")
             return None
 
-        self.log.info("Minimax is thinking...")
+        self.log.info(f"Minimax searching (depth={self.max_depth})...")
 
-        # Level Akar (Root)
+        best_val = -float("inf")
+        best_action = None
+
+        # ========== EVALUATE ALL ROOT ACTIONS ==========
+        # Iterate through all possible first moves
         for action in legal_actions:
-            # Clone state dan terapkan langkah
+            # Clone state and apply action
             next_state = state.clone()
-            next_state.step(action)
+            next_state.step(action, simulate=True)
 
-            # Panggil min_value (karena setelah kita gerak, giliran musuh)
-            val = self.min_value(next_state, 1)
+            # Call min_value since enemy moves next
+            val = self.min_value(next_state, depth=1)
 
-            # Log skor untuk setiap aksi
-            self.log.info(f"Action {action} evaluated -> score: {val}")
+            # Log evaluation for debugging
+            self.log.debug(f"Action {action} → score: {val:.4f}")
 
+            # Track best action
             if val > best_val:
                 best_val = val
                 best_action = action
 
-        self.log.info(f"Best action found: {best_action} with score: {best_val}")
+        self.log.info(
+            f"Best action: {best_action} with normalized score: {best_val:.4f}"
+        )
+
         return best_action
 
-    def max_value(self, state, depth):
-        """Max value function for minimax."""
-        # 1. Buat Node untuk cek terminal/evaluasi
-        node = MinimaxNode(state)  # <--- Buat Objek Node
+    def max_value(self, state: TacticalEnvironment, depth: int) -> float:
+        """
+        Maximizing player's turn (player trying to maximize score).
 
-        # 2. Cek apakah sudah terminal atau mencapai kedalaman maksimum
-        if depth == self.max_depth or node.is_terminal():
-            return node.evaluate()  # <--- Panggil method evaluate() dari class
+        Recursively evaluates all possible player moves and returns
+        the maximum achievable score at current depth.
 
-        v = -float('inf')
-        legal_actions = list(state.get_valid_actions(unit='current'))
+        Args:
+            state: Current game state
+            depth: Current search depth
 
+        Returns:
+            float: Maximum normalized score achievable [0.0, 1.0]
+        """
+        # Create node for terminal check and evaluation
+        node = MinimaxNode(state)
+
+        # ========== BASE CASE: TERMINAL OR MAX DEPTH ==========
+        if depth >= self.max_depth or node.is_terminal():
+            return node.evaluate()
+
+        # ========== RECURSIVE CASE: MAXIMIZE ==========
+        v = -float("inf")
+        legal_actions = node.get_legal_actions()
+
+        # Try all possible player moves
         for action in legal_actions:
             next_state = state.clone()
-            next_state.step(action)
+            next_state.step(action, simulate=True)
 
-            # Rekursi ke min_value
+            # Recurse to enemy's turn (minimize)
             v = max(v, self.min_value(next_state, depth + 1))
 
         return v
 
-    def min_value(self, state, depth):
-        """Min value function for minimax."""
-        # 1. Buat Node untuk cek terminal/evaluasi
-        node = MinimaxNode(state)  # <--- Buat Objek Node
+    def min_value(self, state: TacticalEnvironment, depth: int) -> float:
+        """
+        Minimizing player's turn (enemy trying to minimize score).
 
-        # 2. Cek terminal/depth
-        if depth == self.max_depth or node.is_terminal():
-            return node.evaluate()  # <--- Panggil method evaluate() dari class
+        Recursively evaluates all possible enemy moves and returns
+        the minimum achievable score at current depth.
 
-        v = float('inf')
-        legal_actions = list(state.get_valid_actions(unit='current'))
+        Args:
+            state: Current game state
+            depth: Current search depth
 
+        Returns:
+            float: Minimum normalized score achievable [0.0, 1.0]
+        """
+        # Create node for terminal check and evaluation
+        node = MinimaxNode(state)
+
+        # ========== BASE CASE: TERMINAL OR MAX DEPTH ==========
+        if depth >= self.max_depth or node.is_terminal():
+            return node.evaluate()
+
+        # ========== RECURSIVE CASE: MINIMIZE ==========
+        v = float("inf")
+        legal_actions = node.get_legal_actions()
+
+        # Try all possible enemy moves
         for action in legal_actions:
             next_state = state.clone()
-            next_state.step(action)
+            next_state.step(action, simulate=True)
 
-            # Rekursi ke max_value
+            # Recurse to player's turn (maximize)
             v = min(v, self.max_value(next_state, depth + 1))
 
         return v

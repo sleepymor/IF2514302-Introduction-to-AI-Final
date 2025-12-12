@@ -5,15 +5,15 @@ from utils.logger import Logger
 import pygame
 import random
 
+TILE_SIZE = 40
+
 
 def main():
     pygame.init()
 
     env = TacticalEnvironment(width=15, height=10, seed=32)
-    random.seed(None)  # Reset random seed global agar AI tidak deterministik aneh
+    random.seed(None)
 
-    # Setup Layar
-    TILE_SIZE = 40  # Pastikan sama dengan di environment.py
     screen = pygame.display.set_mode((env.width * TILE_SIZE, env.height * TILE_SIZE))
     pygame.display.set_caption("Tactical AI: Minimax/AlphaBeta")
     clock = pygame.time.Clock()
@@ -21,7 +21,7 @@ def main():
     log = Logger("MainGame")
 
     # Ganti algorithm="MINIMAX" atau "ALPHABETA" atau "MCTS" sesuai kebutuhan
-    playerAgent = PlayerAgent(env, algorithm="MCTS")
+    playerAgent = PlayerAgent(env, algorithm="MINIMAX")
     enemyAgent = EnemyAgent(env)
 
     running = True
