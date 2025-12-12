@@ -1,4 +1,3 @@
-# MODIFIED: src/scoring/benchmark_optimized.py - Top of file
 """
 Optimized benchmark runner with multiprocessing and reduced logging.
 Entry point for running the complete benchmark suite faster.
@@ -10,10 +9,8 @@ import logging
 from pathlib import Path
 from multiprocessing import Pool
 
-# CRITICAL: Disable ALL logging BEFORE any imports from our code
 logging.disable(logging.CRITICAL)
 
-# Add src directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scoring_config import ScoringConfig
@@ -41,9 +38,9 @@ class OptimizedTestRunner(TestRunner):
     def _reduce_algorithm_params(self):
         """Reduce algorithm parameters for faster benchmarking."""
         self.config.mcts_iterations = 800
-        self.config.mcts_sim_depth = 50
-        self.config.alphabeta_depth = 4
-        self.config.minimax_depth = 3
+        self.config.mcts_sim_depth = 20
+        self.config.alphabeta_depth = 20
+        self.config.minimax_depth = 20
 
 
 def run_single_game_worker(args):
@@ -86,16 +83,15 @@ def main():
     print("TACTICAL AI BENCHMARK (OPTIMIZED)")
     print("=" * 90 + "\n")
 
-    # Create configuration with REDUCED parameters for faster benchmarking
     config = ScoringConfig(
-        num_seeds=10,
-        tests_per_seed=2,
+        num_seeds=50,
+        tests_per_seed=5,
         algorithms=["MCTS", "ALPHABETA", "MINIMAX"],
         grid_width=15,
         grid_height=10,
         num_walls=10,
         num_traps=5,
-        max_turns=500,
+        max_turns=50,
     )
 
     print(f"Configuration:")
@@ -110,14 +106,12 @@ def main():
     if not HAS_TQDM:
         print("Note: Install tqdm for progress bars: pip install tqdm\n")
 
-    # Prepare work items for multiprocessing
     work_items = []
     for algorithm in config.algorithms:
         for seed in range(config.num_seeds):
             for test_num in range(config.tests_per_seed):
                 work_items.append((algorithm, seed, test_num, config))
 
-    # Run benchmark with multiprocessing
     print(f"[RUNNING] Starting {len(work_items)} tests with multiprocessing...")
 
     results = []
@@ -145,7 +139,7 @@ def main():
     # Export to Excel
     print("[EXPORTING] Preparing export...")
     exporter = ResultsExporter()
-    exporter.export_to_excel(results, "benchmark_results_optimized.xlsx")
+    exporter.export_to_excel(results, "benchmark_results.xlsx")
 
     print(f"✓ Benchmark Complete!")
     print(f"✓ Results saved to: {exporter.output_dir}")
