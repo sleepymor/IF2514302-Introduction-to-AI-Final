@@ -129,6 +129,8 @@ class TacticalEnvironment:
         self._cached_player_moves = None
         self._cached_enemy_moves = None
 
+        self.turn_counter = 0
+
         if self.seed is not None:
             random.seed(None)
 
@@ -295,11 +297,11 @@ class TacticalEnvironment:
 
             self.turn = "player"
 
-            # self.turn_counter += 1
+            self.turn_counter += 1
 
-            # if self.turn_counter % 3 == 0:
-            #     print("Trap spawned on turn", self.turn_counter)
-            #     self.spawn_trap()
+            if self.turn_counter % 3 == 0:
+                # print("Trap spawned on turn", self.turn_counter)
+                self.spawn_trap()
 
         if simulate:
             return (False, None)
@@ -439,5 +441,6 @@ class TacticalEnvironment:
         cloned.turn = self.turn
         cloned._cached_player_moves = None
         cloned._cached_enemy_moves = None
+        cloned.turn_counter = self.turn_counter
 
         return cloned

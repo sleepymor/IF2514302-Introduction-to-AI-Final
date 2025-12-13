@@ -10,7 +10,7 @@ from utils.logger import Logger
 class MCTS:
     """Monte Carlo Tree Search algorithm implementation."""
 
-    def __init__(self, iterations=1500, exploration_constant=1.4, max_sim_depth=100):
+    def __init__(self, iterations=3000, exploration_constant=1.4, max_sim_depth=200):
         self.iterations = iterations
         self.exploration_constant = exploration_constant
         self.max_sim_depth = max_sim_depth
