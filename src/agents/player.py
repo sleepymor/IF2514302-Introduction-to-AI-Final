@@ -10,27 +10,39 @@ from utils.logger import Logger
 class PlayerAgent:
     """Player AI agent that supports multiple search algorithms."""
 
-    def __init__(self, env: TacticalEnvironment, algorithm="MCTS"):
+    def __init__(
+        self, env: TacticalEnvironment, algorithm="MCTS", benchmark_mode=False
+    ):
         self.env = env
         self.algorithm_choice = algorithm
+        self.benchmark_mode = benchmark_mode
         self.log = Logger("PlayerAgent")
 
         # --- Parameter Algoritma ---
-        mcts_iterations = 1500
-        mcts_sim_depth = 80
-        alphabeta_max_depth = 6
-        minimax_max_depth = 2
+        if benchmark_mode:
+            # Reduced parameters for faster benchmarking
+            mcts_iterations = 800
+            mcts_sim_depth = 50
+            alphabeta_max_depth = 4
+            minimax_max_depth = 3
+        else:
+            # Full parameters for normal play
+            mcts_iterations = 1500
+            mcts_sim_depth = 80
+            alphabeta_max_depth = 6
+            minimax_max_depth = 4
 
-        self.log.info("Initializing MCTS algorithm...")
+        self.log.info(
+            f"Initializing MCTS (iterations={mcts_iterations}, depth={mcts_sim_depth})..."
+        )
         self.mcts_search = MCTS(
             iterations=mcts_iterations, max_sim_depth=mcts_sim_depth
         )
 
-        self.log.info("Initializing AlphaBetaSearch algorithm...")
+        self.log.info(f"Initializing AlphaBetaSearch (depth={alphabeta_max_depth})...")
         self.alphabeta_search = AlphaBetaSearch(max_depth=alphabeta_max_depth)
 
-        # --- TAMBAHAN 2: Inisialisasi Minimax ---
-        self.log.info("Initializing MinimaxSearch algorithm...")
+        self.log.info(f"Initializing MinimaxSearch (depth={minimax_max_depth})...")
         self.minimax_search = MinimaxSearch(max_depth=minimax_max_depth)
 
         # --- Konfirmasi Pilihan Algoritma ---
@@ -38,7 +50,7 @@ class PlayerAgent:
             self.log.info(f"--- PlayerAgent using: MCTS ---")
         elif self.algorithm_choice == "ALPHABETA":
             self.log.info(f"--- PlayerAgent using: AlphaBeta ---")
-        elif self.algorithm_choice == "MINIMAX":  # <-- Tambahan Log
+        elif self.algorithm_choice == "MINIMAX":
             self.log.info(f"--- PlayerAgent using: Minimax ---")
         else:
             self.log.warning(
