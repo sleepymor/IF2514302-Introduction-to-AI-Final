@@ -10,7 +10,7 @@ from utils.logger import Logger
 class MCTS:
     """Monte Carlo Tree Search algorithm implementation."""
 
-    def __init__(self, iterations=3000, exploration_constant=1.4, max_sim_depth=200):
+    def __init__(self, iterations=2000, exploration_constant=1.4, max_sim_depth=500):
         self.iterations = iterations
         self.exploration_constant = exploration_constant
         self.max_sim_depth = max_sim_depth
@@ -41,13 +41,23 @@ class MCTS:
 
         # 3. Pilih Langkah Terbaik MCTS
         if not root.children:
-            return random.choice(valid_actions)
+            chosen = random.choice(valid_actions)
+            return chosen, {"nodes_visited": 0, "win_probability": 0.0}
 
         best_child = max(root.children, key=lambda c: c.visits)
         mcts_action = best_child.action
 
-        win_rate = best_child.wins / best_child.visits if best_child.visits > 0 else 0
+        win_rate = best_child.wins / best_child.visits if best_child.visits > 0 else 0.0
         self.log.info(f"MCTS suggests: {mcts_action}, visits: {best_child.visits}, win_rate: {win_rate:.2f}")
+
+        # Count expanded nodes for reporting
+        def count_nodes(n):
+            total = 1
+            for c in n.children:
+                total += count_nodes(c)
+            return total
+
+        nodes = count_nodes(root)
 
         # --- 4. SAFETY OVERRIDE (JARING PENGAMAN) ---
         # Jika MCTS menyarankan langkah bunuh diri (masuk range musuh), KITA TOLAK.
@@ -80,7 +90,7 @@ class MCTS:
             else:
                 self.log.warning("No safe moves available. Accepting fate.")
 
-        return mcts_action
+        return mcts_action, {"nodes_visited": nodes, "win_probability": float(win_rate)}
 
     def selection(self, node: MCTSNode) -> MCTSNode:
         """Select phase of MCTS."""

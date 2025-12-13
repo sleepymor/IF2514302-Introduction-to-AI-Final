@@ -66,6 +66,14 @@ class TacticalEnvironment:
         self.coordinate_font = (
             pygame.font.SysFont("consolas", 12) if pygame.font.get_init() else None
         )
+        # HUD font for better readability
+        self.hud_font = pygame.font.SysFont("consolas", 16) if pygame.font.get_init() else None
+        # HUD visibility toggle (can be toggled from main event loop)
+        self.hud_visible = True
+        # HUD position and dragging state
+        self.hud_pos = [8, 8]
+        self.hud_dragging = False
+        self.hud_drag_offset = (0, 0)
 
         # Initialize game state
         self.reset()
@@ -412,22 +420,49 @@ class TacticalEnvironment:
             surf.fill(ENEMY_MOVE_RANGE_COLOR)
             screen.blit(surf, rect.topleft)
 
+        # Draw enemy intent path if provided (list of (x,y) tuples)
+        path = getattr(self, "enemy_intent_path", None)
+        if path:
+            # draw on a transparent surface so alpha works
+            surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+            if len(path) >= 2:
+                pts = [((x * TILE_SIZE) + TILE_SIZE // 2, (y * TILE_SIZE) + TILE_SIZE // 2) for x, y in path]
+                pygame.draw.lines(surf, (255, 60, 60, 180), False, pts, 4)
+            # draw markers on each path node
+            for x, y in path:
+                cx = x * TILE_SIZE + TILE_SIZE // 2
+                cy = y * TILE_SIZE + TILE_SIZE // 2
+                pygame.draw.circle(surf, (255, 80, 80, 200), (cx, cy), TILE_SIZE // 6)
+            screen.blit(surf, (0, 0))
+
+        # Smooth draw positions (lerp toward actual tile pixel coordinates)
+        target_px = (self.player_pos[0] * TILE_SIZE, self.player_pos[1] * TILE_SIZE)
+        target_ex = (self.enemy_pos[0] * TILE_SIZE, self.enemy_pos[1] * TILE_SIZE)
+
+        if self.player_draw_pos is None:
+            self.player_draw_pos = [float(target_px[0]), float(target_px[1])]
+        else:
+            # simple linear interpolation
+            self.player_draw_pos[0] += (target_px[0] - self.player_draw_pos[0]) * 0.25
+            self.player_draw_pos[1] += (target_px[1] - self.player_draw_pos[1]) * 0.25
+
+        if self.enemy_draw_pos is None:
+            self.enemy_draw_pos = [float(target_ex[0]), float(target_ex[1])]
+        else:
+            self.enemy_draw_pos[0] += (target_ex[0] - self.enemy_draw_pos[0]) * 0.25
+            self.enemy_draw_pos[1] += (target_ex[1] - self.enemy_draw_pos[1]) * 0.25
+
+        # Draw sprites at interpolated positions
         if self.use_assets:
-            screen.blit(
-                self.textures["player"],
-                (self.player_pos[0] * TILE_SIZE, self.player_pos[1] * TILE_SIZE),
-            )
-            screen.blit(
-                self.textures["enemy"],
-                (self.enemy_pos[0] * TILE_SIZE, self.enemy_pos[1] * TILE_SIZE),
-            )
+            screen.blit(self.textures["player"], self.player_draw_pos)
+            screen.blit(self.textures["enemy"], self.enemy_draw_pos)
         else:
             pygame.draw.rect(
                 screen,
                 (80, 180, 255),
                 (
-                    self.player_pos[0] * TILE_SIZE,
-                    self.player_pos[1] * TILE_SIZE,
+                    int(self.player_draw_pos[0]),
+                    int(self.player_draw_pos[1]),
                     TILE_SIZE,
                     TILE_SIZE,
                 ),
@@ -436,12 +471,73 @@ class TacticalEnvironment:
                 screen,
                 (255, 80, 80),
                 (
-                    self.enemy_pos[0] * TILE_SIZE,
-                    self.enemy_pos[1] * TILE_SIZE,
+                    int(self.enemy_draw_pos[0]),
+                    int(self.enemy_draw_pos[1]),
                     TILE_SIZE,
                     TILE_SIZE,
                 ),
             )
+
+        # HUD: consolidated demo overlay (respect visibility flag)
+        if self.hud_font and getattr(self, "hud_visible", True):
+            alg_name = getattr(self, "active_algorithm_name", "-")
+            # Prefer player metadata if available (avoid enemy overwriting player stats)
+            meta = getattr(self, "ai_metadata_player", None)
+            if meta is None:
+                meta = getattr(self, "ai_metadata", {}) or {}
+            paused = getattr(self, "paused", False)
+            step = getattr(self, "step_requested", False)
+            turn = getattr(self, "turn", "-")
+            fps = getattr(self, "current_fps", 0.0)
+            path = getattr(self, "enemy_intent_path", []) or []
+
+            # Build lines
+            nv = meta.get("nodes_visited")
+            tt = meta.get("thinking_time")
+            wp = meta.get("win_probability")
+
+            lines = [f"Algorithm: {alg_name}", f"Turn: {turn}", f"Paused: {paused}", f"Step: {step}", f"FPS: {fps:.1f}", f"EnemyPath: {len(path)}"]
+            if nv is not None:
+                lines.append(f"Nodes: {nv}")
+            if tt is not None:
+                lines.append(f"Time: {tt:.3f}s")
+            if wp is not None:
+                if 0.0 <= wp <= 1.0:
+                    lines.append(f"Win%: {wp*100:.1f}%")
+                else:
+                    lines.append(f"Score: {wp:.3f}")
+
+            # Controls legend
+            legend = [
+                "Controls:",
+                "Space: Pause/Resume",
+                "H: Toggle HUD",
+                "N: Step (while paused)",
+                "R: Reset",
+                "1/2/3: Switch Alg",
+            ]
+
+            # Compute HUD size
+            pad = 10
+            all_lines = lines + [""] + legend
+            widths = [self.hud_font.size(ln)[0] for ln in all_lines]
+            hud_w = max(widths) + pad * 2
+            hud_h = (len(all_lines)) * (self.hud_font.get_linesize()) + pad * 2
+
+            hud_surf = pygame.Surface((hud_w, hud_h), pygame.SRCALPHA)
+            hud_surf.fill((12, 14, 18, 200))
+            # border
+            pygame.draw.rect(hud_surf, (120, 120, 140, 200), hud_surf.get_rect(), 1)
+            # Blit lines
+            for i, ln in enumerate(all_lines):
+                color = (220, 220, 220) if i < len(lines) else (180, 180, 200)
+                t = self.hud_font.render(ln, True, color)
+                hud_surf.blit(t, (pad, pad + i * self.hud_font.get_linesize()))
+
+            # Use stored HUD position and expose rect for hit-testing (draggable)
+            pos = (int(self.hud_pos[0]), int(self.hud_pos[1]))
+            self.hud_rect = pygame.Rect(pos, (hud_w, hud_h))
+            screen.blit(hud_surf, pos)
 
     def clone(self):
         """
