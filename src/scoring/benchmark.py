@@ -18,6 +18,7 @@ from test_runner import TestRunner, GameResult
 from results_analyzer import ResultsAnalyzer
 from results_exporter import ResultsExporter
 from utils.logger import Logger
+from datetime import datetime
 
 try:
     from tqdm import tqdm
@@ -139,7 +140,8 @@ def main():
     # Export to Excel
     print("[EXPORTING] Preparing export...")
     exporter = ResultsExporter()
-    exporter.export_to_excel(results, f)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    exporter.export_to_excel(results, f"benchmark_results{timestamp}.xlsx")
 
     print(f"✓ Benchmark Complete!")
     print(f"✓ Results saved to: {exporter.output_dir}")
