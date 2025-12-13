@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 from typing import List, Dict
 from results_analyzer import ResultsAnalyzer, GameResult
+from datetime import datetime
 
 try:
     from tqdm import tqdm
@@ -49,7 +50,8 @@ class ResultsExporter:
             return
         
         if filename is None:
-            filename = "benchmark_results.xlsx"
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"benchmark_results_{timestamp}.xlsx"
         
         filepath = os.path.join(self.output_dir, filename)
         

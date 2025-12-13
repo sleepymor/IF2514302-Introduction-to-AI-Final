@@ -86,7 +86,7 @@ def generate_environment(width, height, num_walls, num_traps, seed=None):
     while True:
         gx, gy = random.randrange(width), random.randrange(height)
         dist = math.dist(player_pos, (gx, gy))
-        if dist > max(width, height) / 2 and (gx, gy) not in walls:
+        if dist > max(width, height) and (gx, gy) not in walls:
             goal = (gx, gy)
             break
 

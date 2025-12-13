@@ -1,6 +1,6 @@
 environment:
   width: 30
-  height: 10
+  height: 30
   num_walls: 10
   num_traps: 5
   seed: 42

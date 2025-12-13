@@ -80,23 +80,23 @@ def main():
     pygame.init()
 
     # Setup Environment (seed can be None to randomize)
-    env = TacticalEnvironment(width=15, height=10, seed=32)
+    env = TacticalEnvironment(width=40, height=20, seed=42, num_walls=200, num_traps=20)
     random.seed(None)
 
     # Screen setup
     TILE_SIZE = 40
     screen = pygame.display.set_mode((env.width * TILE_SIZE, env.height * TILE_SIZE))
-    pygame.display.set_caption("Tactical AI: Minimax/AlphaBeta (multiprocessing)")
+    pygame.display.set_caption("Tactical AI")
     clock = pygame.time.Clock()
 
     log = Logger("MainGame")
 
     # Agents (we keep objects here for config, but worker will reconstruct env and agent)
-    playerAgent = PlayerAgent(env, algorithm="MINIMAX")
+    playerAgent = PlayerAgent(env, algorithm="MCTS",)
     enemyAgent = EnemyAgent(env)
 
     # Multiprocessing pool (create once)
-    cpu_count = os.cpu_count() or 2
+    cpu_count = os.cpu_count() or 4
     pool = Pool(processes=min(cpu_count, 4))  # cap to reasonable number
 
     # Pending async jobs storage
