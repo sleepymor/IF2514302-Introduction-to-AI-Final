@@ -123,6 +123,31 @@ def main():
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+                # Mouse down/up/motion for HUD dragging
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1 and getattr(env, "hud_visible", True):
+                        hud_rect = getattr(env, "hud_rect", None)
+                        if hud_rect and hud_rect.collidepoint(event.pos):
+                            env.hud_dragging = True
+                            mx, my = event.pos
+                            env.hud_drag_offset = (env.hud_pos[0] - mx, env.hud_pos[1] - my)
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    if event.button == 1:
+                        env.hud_dragging = False
+                elif event.type == pygame.MOUSEMOTION:
+                    if getattr(env, "hud_dragging", False):
+                        mx, my = event.pos
+                        offx, offy = env.hud_drag_offset
+                        new_x = mx + offx
+                        new_y = my + offy
+                        # Clamp to screen bounds so HUD stays visible
+                        sw, sh = screen.get_size()
+                        hr = getattr(env, "hud_rect", pygame.Rect(0,0,0,0))
+                        hw, hh = hr.width, hr.height
+                        new_x = max(0, min(new_x, sw - hw))
+                        new_y = max(0, min(new_y, sh - hh))
+                        env.hud_pos[0] = new_x
+                        env.hud_pos[1] = new_y
                 elif event.type == pygame.KEYDOWN:
                     # Toggle pause
                     if event.key == pygame.K_SPACE:
@@ -160,6 +185,10 @@ def main():
                         playerAgent.alphabeta_search = None
                         playerAgent.minimax_search = None
                         print("Switched algorithm -> Minimax")
+                    # Toggle HUD visibility
+                    elif event.key == pygame.K_h:
+                        env.hud_visible = not getattr(env, "hud_visible", True)
+                        print(f"HUD visible: {env.hud_visible}")
 
             # If there's no pending AI job and it's a turn, start one
             # When paused, don't start jobs unless user requested a single step

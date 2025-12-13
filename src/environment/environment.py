@@ -68,6 +68,12 @@ class TacticalEnvironment:
         )
         # HUD font for better readability
         self.hud_font = pygame.font.SysFont("consolas", 16) if pygame.font.get_init() else None
+        # HUD visibility toggle (can be toggled from main event loop)
+        self.hud_visible = True
+        # HUD position and dragging state
+        self.hud_pos = [8, 8]
+        self.hud_dragging = False
+        self.hud_drag_offset = (0, 0)
 
         # Initialize game state
         self.reset()
@@ -472,8 +478,8 @@ class TacticalEnvironment:
                 ),
             )
 
-        # HUD: consolidated demo overlay
-        if self.hud_font:
+        # HUD: consolidated demo overlay (respect visibility flag)
+        if self.hud_font and getattr(self, "hud_visible", True):
             alg_name = getattr(self, "active_algorithm_name", "-")
             # Prefer player metadata if available (avoid enemy overwriting player stats)
             meta = getattr(self, "ai_metadata_player", None)
@@ -502,7 +508,14 @@ class TacticalEnvironment:
                     lines.append(f"Score: {wp:.3f}")
 
             # Controls legend
-            legend = ["Controls:", "Space: Pause/Resume", "N: Step (while paused)", "R: Reset", "1/2/3: Switch Alg"]
+            legend = [
+                "Controls:",
+                "Space: Pause/Resume",
+                "H: Toggle HUD",
+                "N: Step (while paused)",
+                "R: Reset",
+                "1/2/3: Switch Alg",
+            ]
 
             # Compute HUD size
             pad = 10
@@ -521,7 +534,10 @@ class TacticalEnvironment:
                 t = self.hud_font.render(ln, True, color)
                 hud_surf.blit(t, (pad, pad + i * self.hud_font.get_linesize()))
 
-            screen.blit(hud_surf, (8, 8))
+            # Use stored HUD position and expose rect for hit-testing (draggable)
+            pos = (int(self.hud_pos[0]), int(self.hud_pos[1]))
+            self.hud_rect = pygame.Rect(pos, (hud_w, hud_h))
+            screen.blit(hud_surf, pos)
 
     def clone(self):
         """
