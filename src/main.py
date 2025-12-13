@@ -90,7 +90,7 @@ def main():
     pygame.init()
 
     # Setup Environment (seed can be None to randomize)
-    env = TacticalEnvironment(width=20, height=15, seed=42, num_walls=75, num_traps=10)
+    env = TacticalEnvironment(width=30, height=15, seed=0, num_walls=125, num_traps=20)
     random.seed(None)
 
     # Screen setup

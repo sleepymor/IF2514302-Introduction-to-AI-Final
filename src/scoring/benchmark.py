@@ -38,10 +38,10 @@ class OptimizedTestRunner(TestRunner):
 
     def _reduce_algorithm_params(self):
         """Reduce algorithm parameters for faster benchmarking."""
-        self.config.mcts_iterations = 1000
-        self.config.mcts_sim_depth = 700
-        self.config.alphabeta_depth = 700
-        self.config.minimax_depth = 700
+        self.config.mcts_iterations = 15000
+        self.config.mcts_sim_depth = 5000
+        self.config.alphabeta_depth = 5000
+        self.config.minimax_depth = 5000
 
 
 def run_single_game_worker(args):
@@ -85,14 +85,14 @@ def main():
     print("=" * 90 + "\n")
 
     config = ScoringConfig(
-        num_seeds=10,
+        num_seeds=5,
         tests_per_seed=5,
         algorithms=["MCTS", "ALPHABETA", "MINIMAX"],
         grid_width=30,
         grid_height=15,
-        num_walls=125,
+        num_walls=90,
         num_traps=10,
-        max_turns=200,
+        max_turns=150,
     )
 
     print(f"Configuration:")
@@ -141,7 +141,7 @@ def main():
     print("[EXPORTING] Preparing export...")
     exporter = ResultsExporter()
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    exporter.export_to_excel(results, f"benchmark_results{timestamp}.xlsx")
+    exporter.export_to_excel(results, f"benchmark_results_{timestamp}.xlsx")
 
     print(f"✓ Benchmark Complete!")
     print(f"✓ Results saved to: {exporter.output_dir}")
