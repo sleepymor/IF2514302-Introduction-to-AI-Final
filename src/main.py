@@ -43,15 +43,25 @@ def run_agent_action_worker(args: Tuple[str, str, Dict[str, Any]]):
         agent = EnemyAgent(env)
 
     try:
-        action = agent.action()
+        result = agent.action()
     except Exception:
         # Ensure worker returns a reasonable fallback action on error
-        action = tuple(env.player_pos) if agent_type == "player" else tuple(env.enemy_pos)
+        result = (tuple(env.player_pos), {"nodes_visited": 0, "thinking_time": 0.0, "win_probability": 0.0}) if agent_type == "player" else (tuple(env.enemy_pos), {"nodes_visited": 0, "thinking_time": 0.0, "win_probability": 0.0})
 
     # Normalize to tuple
+    # result may be (action, metadata) or just action
+    metadata = {"nodes_visited": 0, "thinking_time": 0.0, "win_probability": 0.0}
+    if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], dict):
+        action, meta = result
+        if isinstance(meta, dict):
+            metadata.update(meta)
+    else:
+        action = result
+
     if isinstance(action, list):
         action = tuple(action)
-    return action
+
+    return (action, metadata)
 
 
 def make_env_snapshot(env: TacticalEnvironment) -> dict:
@@ -80,7 +90,7 @@ def main():
     pygame.init()
 
     # Setup Environment (seed can be None to randomize)
-    env = TacticalEnvironment(width=40, height=20, seed=42, num_walls=200, num_traps=20)
+    env = TacticalEnvironment(width=20, height=15, seed=42, num_walls=75, num_traps=10)
     random.seed(None)
 
     # Screen setup
@@ -105,15 +115,56 @@ def main():
     pending_algorithm = None
 
     running = True
+    paused = False
+    step_requested = False
     try:
         while running:
             # --- Event Handling ---
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+                elif event.type == pygame.KEYDOWN:
+                    # Toggle pause
+                    if event.key == pygame.K_SPACE:
+                        paused = not paused
+                        print(f"Paused: {paused}")
+                    # Step one turn when paused
+                    elif event.key == pygame.K_n:
+                        if paused:
+                            step_requested = True
+                    # Reset environment
+                    elif event.key == pygame.K_r:
+                        env.reset()
+                        # clear agent caches
+                        for attr in ("mcts_search", "alphabeta_search", "minimax_search"):
+                            if hasattr(playerAgent, attr):
+                                setattr(playerAgent, attr, None)
+                        print("Environment reset")
+                    # Algorithm switching: 1=MCTS, 2=AlphaBeta, 3=Minimax
+                    elif event.key == pygame.K_1:
+                        playerAgent.algorithm_choice = "MCTS"
+                        # reset lazy-inits so new algorithm will initialize
+                        playerAgent.mcts_search = None
+                        playerAgent.alphabeta_search = None
+                        playerAgent.minimax_search = None
+                        print("Switched algorithm -> MCTS")
+                    elif event.key == pygame.K_2:
+                        playerAgent.algorithm_choice = "ALPHABETA"
+                        playerAgent.mcts_search = None
+                        playerAgent.alphabeta_search = None
+                        playerAgent.minimax_search = None
+                        print("Switched algorithm -> AlphaBeta")
+                    elif event.key == pygame.K_3:
+                        playerAgent.algorithm_choice = "MINIMAX"
+                        playerAgent.mcts_search = None
+                        playerAgent.alphabeta_search = None
+                        playerAgent.minimax_search = None
+                        print("Switched algorithm -> Minimax")
 
             # If there's no pending AI job and it's a turn, start one
-            if pending_future is None:
+            # When paused, don't start jobs unless user requested a single step
+            can_start_job = not paused or step_requested
+            if pending_future is None and can_start_job:
                 if env.turn == "player":
                     # Start player's thinking in a worker
                     snap = make_env_snapshot(env)
@@ -134,16 +185,35 @@ def main():
             if pending_future is not None:
                 if pending_future.ready():
                     try:
-                        action = pending_future.get(timeout=1)
+                        result = pending_future.get(timeout=1)
                     except Exception:
                         # If something went wrong, fallback to no-op movement
                         if pending_owner == "player":
-                            action = tuple(env.player_pos)
+                            result = (tuple(env.player_pos), {"nodes_visited": 0, "thinking_time": 0.0, "win_probability": 0.0})
                         else:
-                            action = tuple(env.enemy_pos)
+                            result = (tuple(env.enemy_pos), {"nodes_visited": 0, "thinking_time": 0.0, "win_probability": 0.0})
+
+                    # result is (action, metadata)
+                    if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], dict):
+                        action, metadata = result
+                    else:
+                        action = result
+                        metadata = {"nodes_visited": 0, "thinking_time": 0.0, "win_probability": 0.0}
 
                     # Execute the action in the environment (simulate=False so gameplay resets properly)
                     env.step(action, simulate=True)
+
+                    # attach metadata for HUD
+                    # keep separate slots so enemy metadata doesn't overwrite player stats
+                    if pending_owner == "player":
+                        env.ai_metadata_player = metadata
+                        env.ai_metadata = metadata
+                    else:
+                        env.ai_metadata_enemy = metadata
+
+                    # If we were paused stepping, consume the step request now
+                    if paused and step_requested:
+                        step_requested = False
 
                     # Clear pending
                     pending_future = None
@@ -170,6 +240,20 @@ def main():
 
             # Drawing
             screen.fill((20, 20, 30))
+            # Update environment HUD data
+            env.active_algorithm_name = playerAgent.algorithm_choice
+
+            # pass demo state for HUD
+            env.paused = paused
+            env.step_requested = step_requested
+            env.current_fps = clock.get_fps()
+
+            # For visualization, ask the local enemy agent for its path and attach it
+            try:
+                env.enemy_intent_path = enemyAgent.peek_path()
+            except Exception:
+                env.enemy_intent_path = getattr(env, "enemy_intent_path", None)
+
             env.draw(screen)
             pygame.display.flip()
 

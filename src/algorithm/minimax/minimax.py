@@ -16,6 +16,8 @@ class MinimaxSearch:
         
         # List untuk menampung semua gerakan terbaik (jika ada yang nilainya sama)
         best_actions = [] 
+        # counter
+        self._nodes_visited = 0
         
         legal_actions = list(state.get_valid_actions(unit='current'))
         
@@ -45,14 +47,16 @@ class MinimaxSearch:
         # Jika ada banyak gerakan dengan nilai terbaik yang sama, pilih acak
         if best_actions:
             chosen_action = random.choice(best_actions)
-            # self.log.info(f"Chosen {chosen_action} from candidates: {best_actions} with score {best_val}")
-            return chosen_action
+            # return metadata
+            meta = {"nodes_visited": getattr(self, "_nodes_visited", 0), "win_probability": float(best_val)}
+            return chosen_action, meta
             
         return None
 
     def max_value(self, state, depth):
         # Giliran Maximizer (Player)
         node = MinimaxNode(state)
+        self._nodes_visited += 1
         if depth == self.max_depth or node.is_terminal():
             return node.evaluate()
 
@@ -73,6 +77,7 @@ class MinimaxSearch:
     def min_value(self, state, depth):
         # Giliran Minimizer (Enemy)
         node = MinimaxNode(state)
+        self._nodes_visited += 1
         if depth == self.max_depth or node.is_terminal():
             return node.evaluate()
 
