@@ -38,8 +38,8 @@ class OptimizedTestRunner(TestRunner):
 
     def _reduce_algorithm_params(self):
         """Reduce algorithm parameters for faster benchmarking."""
-        self.config.mcts_iterations = 1000
-        self.config.mcts_sim_depth = 700
+        self.config.mcts_iterations = 2000
+        self.config.mcts_sim_depth = 500
         self.config.alphabeta_depth = 700
         self.config.minimax_depth = 700
 
@@ -88,9 +88,9 @@ def main():
         num_seeds=10,
         tests_per_seed=5,
         algorithms=["MCTS", "ALPHABETA", "MINIMAX"],
-        grid_width=30,
+        grid_width=20,
         grid_height=15,
-        num_walls=125,
+        num_walls=50,
         num_traps=10,
         max_turns=200,
     )
