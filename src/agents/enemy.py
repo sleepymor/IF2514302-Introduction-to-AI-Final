@@ -8,6 +8,8 @@ class EnemyAgent:
     def __init__(self, env: TacticalEnvironment):
         self.env = env
         self.move_range = 2
+        # last computed path (list of (x,y) tuples) for visualization
+        self.last_path = []
 
     def action(self):
         """Calculate and return the next enemy action using A* pathfinding."""
@@ -17,6 +19,14 @@ class EnemyAgent:
         goal = tuple(self.env.player_pos)
 
         path = a_star.search(start, goal)
+
+        # store for external visualization (main loop can call peek_path too)
+        self.last_path = [] if path is None else list(path)
+        try:
+            # also attach to env for renderer convenience
+            self.env.enemy_intent_path = self.last_path
+        except Exception:
+            pass
 
         if path is None or len(path) <= 1:
             return start
@@ -28,3 +38,17 @@ class EnemyAgent:
         next_tile = path[index]
 
         return next_tile
+
+    def peek_path(self):
+        """Return the computed A* path from enemy to player without consuming state.
+
+        This method allows the main process (UI) to request the latest path
+        for visualization even if the actual action is computed in a worker.
+        """
+        a_star = AStar(env=self.env)
+        start = tuple(self.env.enemy_pos)
+        goal = tuple(self.env.player_pos)
+        path = a_star.search(start, goal)
+        path = [] if path is None else list(path)
+        # do not mutate env state here
+        return path

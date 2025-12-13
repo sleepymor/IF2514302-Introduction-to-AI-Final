@@ -21,6 +21,8 @@ class AlphaBetaSearch:
 
         best_val = -float("inf")
         best_action = None
+        # node visit counter
+        self._nodes_visited = 0
 
         legal_actions = list(state.get_valid_actions(unit="current"))
 
@@ -50,11 +52,17 @@ class AlphaBetaSearch:
         # Log hasil akhir
         self.log.info(f"Best action found: {best_action} with score: {best_val}")
 
-        return best_action
+        # return action plus metadata
+        meta = {
+            "nodes_visited": getattr(self, "_nodes_visited", 0),
+            "win_probability": float(best_val),
+        }
+        return best_action, meta
 
     def max_value(self, state, alpha, beta, depth):
         """Max value function for alpha-beta pruning."""
         node = AlphaBetaNode(state)
+        self._nodes_visited += 1
 
         if depth == self.max_depth or node.is_terminal():
             return node.evaluate()
@@ -79,6 +87,7 @@ class AlphaBetaSearch:
     def min_value(self, state, alpha, beta, depth):
         """Min value function for alpha-beta pruning."""
         node = AlphaBetaNode(state)
+        self._nodes_visited += 1
 
         if depth == self.max_depth or node.is_terminal():
             return node.evaluate()
