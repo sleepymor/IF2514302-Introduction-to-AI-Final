@@ -1,3 +1,4 @@
+import pygame
 import random
 import sys
 import os
@@ -88,24 +89,22 @@ class TestRunner:
 
             while turn_count < max_turns and not game_over:
                 if env.turn == "player":
-                    action = player_agent.action()
-                    
-                    # Handle case where action returns metadata
-                    if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], dict):
-                        action, _ = result
+                    agent_result = player_agent.action()
+                
+                    if isinstance(agent_result, tuple) and len(agent_result) == 2 and isinstance(agent_result[1], dict):
+                        action, _ = agent_result
                     else:
-                        action = result
-                        
+                        action = agent_result
+
                     is_terminal, reason = env.step(action, simulate=True)
+
+                    result.moves += 1
+                    result.total_actions += 1
 
                     if is_terminal:
                         game_over = True
                         end_reason = reason
-                        result.moves += 1
-                        result.total_actions += 1
-                    else:
-                        result.moves += 1
-                        result.total_actions += 1
+
 
                 if not game_over and env.turn == "enemy":
                     enemy_moves = env.get_move_range(env.enemy_pos)
@@ -140,6 +139,14 @@ class TestRunner:
                 result.result = "timeout"
 
             result.total_turns = turn_count
+            
+            # pygame.init()
+
+            # TILE_SIZE = 40
+            # screen = pygame.display.set_mode((env.width * TILE_SIZE, env.height * TILE_SIZE))
+            # pygame.display.set_caption("Tactical AI")
+            # clock = pygame.time.Clock()
+            # env.draw(screen)
 
         except Exception as e:
             self.logger.error(f"Error running game: {str(e)}")

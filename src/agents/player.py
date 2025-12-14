@@ -21,14 +21,14 @@ class PlayerAgent:
         if benchmark_mode:
             # Reduced parameters for faster benchmarking
             self.mcts_iterations = 200
-            self.mcts_sim_depth = 6
+            self.mcts_sim_depth = 5
             self.alphabeta_max_depth = 4
             self.minimax_max_depth = 3
         else:
             # Full parameters for normal play
             self.mcts_iterations = 200
-            self.mcts_sim_depth = 6
-            self.alphabeta_max_depth = 6
+            self.mcts_sim_depth = 5
+            self.alphabeta_max_depth = 5
             self.minimax_max_depth = 4
 
         # Do not instantiate all searches up-front; create only the selected one.
