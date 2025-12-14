@@ -89,6 +89,13 @@ class TestRunner:
             while turn_count < max_turns and not game_over:
                 if env.turn == "player":
                     action = player_agent.action()
+                    
+                    # Handle case where action returns metadata
+                    if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], dict):
+                        action, _ = result
+                    else:
+                        action = result
+                        
                     is_terminal, reason = env.step(action, simulate=True)
 
                     if is_terminal:

@@ -108,6 +108,11 @@ class PlayerAgent:
                 best_action = random.choice(legal_actions)
             else:
                 best_action = self.env.player_pos
+                
+        # Benchmark mode: return immediately without extra metadata        
+        if self.benchmark_mode:
+            return best_action
+        
         # finalize thinking time
         end_time = time.time()
         metadata["thinking_time"] = end_time - start_time
