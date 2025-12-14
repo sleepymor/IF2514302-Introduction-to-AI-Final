@@ -92,7 +92,7 @@ def main():
     log = Logger("MainGame")
 
     # Agents (we keep objects here for config, but worker will reconstruct env and agent)
-    playerAgent = PlayerAgent(env, algorithm="MCTS",)
+    playerAgent = PlayerAgent(env, algorithm="MINIMAX",)
     enemyAgent = EnemyAgent(env)
 
     # Multiprocessing pool (create once)
