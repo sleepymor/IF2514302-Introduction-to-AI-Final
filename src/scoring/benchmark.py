@@ -85,7 +85,7 @@ def main():
     print("=" * 90 + "\n")
 
     config = ScoringConfig(
-        num_seeds=5,
+        num_seeds=20,
         tests_per_seed=5,
         algorithms=["MCTS", "ALPHABETA", "MINIMAX"],
         grid_width=30,

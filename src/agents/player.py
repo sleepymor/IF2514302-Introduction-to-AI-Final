@@ -26,7 +26,7 @@ class PlayerAgent:
             self.minimax_max_depth = 3
         else:
             # Full parameters for normal play
-            self.mcts_iterations = 10000
+            self.mcts_iterations = 200
             self.mcts_sim_depth = 6
             self.alphabeta_max_depth = 6
             self.minimax_max_depth = 4
