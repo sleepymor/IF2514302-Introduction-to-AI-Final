@@ -39,9 +39,9 @@ class OptimizedTestRunner(TestRunner):
     def _reduce_algorithm_params(self):
         """Reduce algorithm parameters for faster benchmarking."""
         self.config.mcts_iterations = 200
-        self.config.mcts_sim_depth = 6
+        self.config.mcts_sim_depth = 5
         self.config.alphabeta_depth = 4
-        self.config.minimax_depth = 4
+        self.config.minimax_depth = 3
 
 
 def run_single_game_worker(args):
@@ -85,14 +85,14 @@ def main():
     print("=" * 90 + "\n")
 
     config = ScoringConfig(
-        num_seeds=20,
-        tests_per_seed=5,
+        num_seeds=5,
+        tests_per_seed=100,
         algorithms=["MCTS", "ALPHABETA", "MINIMAX"],
-        grid_width=20,
+        grid_width=30,
         grid_height=15,
-        num_walls=90,
-        num_traps=10,
-        max_turns=150,
+        num_walls=125,
+        num_traps=20,
+        max_turns=300,
     )
 
     print(f"Configuration:")
@@ -116,7 +116,7 @@ def main():
     print(f"[RUNNING] Starting {len(work_items)} tests with multiprocessing...")
 
     results = []
-    num_processes = os.cpu_count() or 4
+    num_processes = 6
 
     with Pool(processes=num_processes) as pool:
         iterator = (
