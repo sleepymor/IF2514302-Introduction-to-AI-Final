@@ -1,4 +1,5 @@
 import random
+import time
 
 from environment.environment import TacticalEnvironment
 from algorithm.mcts.mcts import MCTS
@@ -60,28 +61,45 @@ class PlayerAgent:
         """Execute player action based on selected algorithm."""
         current_state = self.env.clone()
         best_action = None
+        metadata = {"nodes_visited": 0, "thinking_time": 0.0, "win_probability": 0.0}
 
         # Lazily initialize if something changed externally
+        start_time = time.time()
         if self.algorithm_choice == "MCTS":
             if self.mcts_search is None:
                 self.log.info(f"Lazy-initializing MCTS (iterations={self.mcts_iterations}, depth={self.mcts_sim_depth})...")
                 self.mcts_search = MCTS(iterations=self.mcts_iterations, max_sim_depth=self.mcts_sim_depth)
             self.log.info("MCTS is thinking...")
-            best_action = self.mcts_search.search(current_state)
+            result = self.mcts_search.search(current_state)
+            if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], dict):
+                best_action, meta = result
+                metadata.update(meta)
+            else:
+                best_action = result
 
         elif self.algorithm_choice == "ALPHABETA":
             if self.alphabeta_search is None:
                 self.log.info(f"Lazy-initializing AlphaBetaSearch (depth={self.alphabeta_max_depth})...")
                 self.alphabeta_search = AlphaBetaSearch(max_depth=self.alphabeta_max_depth)
             self.log.info("AlphaBeta is thinking...")
-            best_action = self.alphabeta_search.search(current_state)
+            result = self.alphabeta_search.search(current_state)
+            if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], dict):
+                best_action, meta = result
+                metadata.update(meta)
+            else:
+                best_action = result
 
         elif self.algorithm_choice == "MINIMAX":
             if self.minimax_search is None:
                 self.log.info(f"Lazy-initializing MinimaxSearch (depth={self.minimax_max_depth})...")
                 self.minimax_search = MinimaxSearch(max_depth=self.minimax_max_depth)
             self.log.info("Minimax is thinking...")
-            best_action = self.minimax_search.search(current_state)
+            result = self.minimax_search.search(current_state)
+            if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], dict):
+                best_action, meta = result
+                metadata.update(meta)
+            else:
+                best_action = result
 
         # --- Fallback ---
         if best_action is None:
@@ -90,6 +108,9 @@ class PlayerAgent:
                 best_action = random.choice(legal_actions)
             else:
                 best_action = self.env.player_pos
+        # finalize thinking time
+        end_time = time.time()
+        metadata["thinking_time"] = end_time - start_time
 
-        self.log.info(f"Chosen action: {best_action}")
-        return best_action
+        self.log.info(f"Chosen action: {best_action} (meta={metadata})")
+        return best_action, metadata
