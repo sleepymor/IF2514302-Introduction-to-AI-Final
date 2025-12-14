@@ -88,7 +88,7 @@ def main():
         num_seeds=20,
         tests_per_seed=5,
         algorithms=["MCTS", "ALPHABETA", "MINIMAX"],
-        grid_width=30,
+        grid_width=20,
         grid_height=15,
         num_walls=90,
         num_traps=10,
