@@ -120,7 +120,8 @@ class MCTS:
 
         is_term, reason = state.is_terminal()
         if is_term:
-            return self.rollout_reward(state, reason)
+            reward = self.rollout_reward(state, reason)
+            return MCTSNode._normalize_score(reward)
 
         for _ in range(self.max_sim_depth):
             if state.turn == "player":
@@ -147,9 +148,11 @@ class MCTS:
 
             is_term, reason = state.is_terminal()
             if is_term:
-                return self.rollout_reward(state, reason)
+                reward = self.rollout_reward(state, reason)
+                return MCTSNode._normalize_score(reward)
 
-        return self.rollout_reward(state, reason=None)
+        reward = self.rollout_reward(state, reason=None)
+        return MCTSNode._normalize_score(reward)
 
     def fast_enemy_policy(self, state):
         """Fast enemy policy for simulation."""

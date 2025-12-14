@@ -115,7 +115,7 @@ def main():
     # Agents (we keep objects here for config, but worker will reconstruct env and agent)
     playerAgent = PlayerAgent(
         env,
-        algorithm="MCTS",
+        algorithm="ALPHABETA",
     )
     enemyAgent = EnemyAgent(env)
 

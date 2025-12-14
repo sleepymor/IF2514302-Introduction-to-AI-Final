@@ -135,3 +135,11 @@ class MCTSNode:
         danger_penalty = 1.0 / (dist_enemy + 1)
 
         return max(0.0, goal_score - 0.5 * danger_penalty)
+
+    @staticmethod
+    def _normalize_score(raw_score: float) -> float:
+        """
+        Normalize raw utility into [0.0, 1.0] for MCTS backprop.
+        """
+        raw_score = max(-1.0, min(1.0, raw_score))
+        return 0.5 * (raw_score + 1.0)
