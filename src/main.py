@@ -10,6 +10,7 @@ from agents.enemy import EnemyAgent
 from agents.player import PlayerAgent
 from utils.logger import Logger
 
+
 # Worker function must be importable at module top-level (for Windows spawn)
 def run_agent_action_worker(args: Tuple[str, str, Dict[str, Any]]):
     """
@@ -46,7 +47,17 @@ def run_agent_action_worker(args: Tuple[str, str, Dict[str, Any]]):
         result = agent.action()
     except Exception:
         # Ensure worker returns a reasonable fallback action on error
-        result = (tuple(env.player_pos), {"nodes_visited": 0, "thinking_time": 0.0, "win_probability": 0.0}) if agent_type == "player" else (tuple(env.enemy_pos), {"nodes_visited": 0, "thinking_time": 0.0, "win_probability": 0.0})
+        result = (
+            (
+                tuple(env.player_pos),
+                {"nodes_visited": 0, "thinking_time": 0.0, "win_probability": 0.0},
+            )
+            if agent_type == "player"
+            else (
+                tuple(env.enemy_pos),
+                {"nodes_visited": 0, "thinking_time": 0.0, "win_probability": 0.0},
+            )
+        )
 
     # Normalize to tuple
     # result may be (action, metadata) or just action
@@ -102,7 +113,10 @@ def main():
     log = Logger("MainGame")
 
     # Agents (we keep objects here for config, but worker will reconstruct env and agent)
-    playerAgent = PlayerAgent(env, algorithm="Alphabeta",)
+    playerAgent = PlayerAgent(
+        env,
+        algorithm="Alphabeta",
+    )
     enemyAgent = EnemyAgent(env)
 
     # Multiprocessing pool (create once)
@@ -130,7 +144,10 @@ def main():
                         if hud_rect and hud_rect.collidepoint(event.pos):
                             env.hud_dragging = True
                             mx, my = event.pos
-                            env.hud_drag_offset = (env.hud_pos[0] - mx, env.hud_pos[1] - my)
+                            env.hud_drag_offset = (
+                                env.hud_pos[0] - mx,
+                                env.hud_pos[1] - my,
+                            )
                 elif event.type == pygame.MOUSEBUTTONUP:
                     if event.button == 1:
                         env.hud_dragging = False
@@ -142,7 +159,7 @@ def main():
                         new_y = my + offy
                         # Clamp to screen bounds so HUD stays visible
                         sw, sh = screen.get_size()
-                        hr = getattr(env, "hud_rect", pygame.Rect(0,0,0,0))
+                        hr = getattr(env, "hud_rect", pygame.Rect(0, 0, 0, 0))
                         hw, hh = hr.width, hr.height
                         new_x = max(0, min(new_x, sw - hw))
                         new_y = max(0, min(new_y, sh - hh))
@@ -161,7 +178,11 @@ def main():
                     elif event.key == pygame.K_r:
                         env.reset()
                         # clear agent caches
-                        for attr in ("mcts_search", "alphabeta_search", "minimax_search"):
+                        for attr in (
+                            "mcts_search",
+                            "alphabeta_search",
+                            "minimax_search",
+                        ):
                             if hasattr(playerAgent, attr):
                                 setattr(playerAgent, attr, None)
                         print("Environment reset")
@@ -218,16 +239,38 @@ def main():
                     except Exception:
                         # If something went wrong, fallback to no-op movement
                         if pending_owner == "player":
-                            result = (tuple(env.player_pos), {"nodes_visited": 0, "thinking_time": 0.0, "win_probability": 0.0})
+                            result = (
+                                tuple(env.player_pos),
+                                {
+                                    "nodes_visited": 0,
+                                    "thinking_time": 0.0,
+                                    "win_probability": 0.0,
+                                },
+                            )
                         else:
-                            result = (tuple(env.enemy_pos), {"nodes_visited": 0, "thinking_time": 0.0, "win_probability": 0.0})
+                            result = (
+                                tuple(env.enemy_pos),
+                                {
+                                    "nodes_visited": 0,
+                                    "thinking_time": 0.0,
+                                    "win_probability": 0.0,
+                                },
+                            )
 
                     # result is (action, metadata)
-                    if isinstance(result, tuple) and len(result) == 2 and isinstance(result[1], dict):
+                    if (
+                        isinstance(result, tuple)
+                        and len(result) == 2
+                        and isinstance(result[1], dict)
+                    ):
                         action, metadata = result
                     else:
                         action = result
-                        metadata = {"nodes_visited": 0, "thinking_time": 0.0, "win_probability": 0.0}
+                        metadata = {
+                            "nodes_visited": 0,
+                            "thinking_time": 0.0,
+                            "win_probability": 0.0,
+                        }
 
                     # Execute the action in the environment (simulate=False so gameplay resets properly)
                     env.step(action, simulate=True)
