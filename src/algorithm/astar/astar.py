@@ -1,4 +1,3 @@
-import math
 import heapq
 from environment.environment import TacticalEnvironment
 from algorithm.astar.node import Node

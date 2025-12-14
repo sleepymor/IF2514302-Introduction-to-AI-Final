@@ -22,15 +22,15 @@ class PlayerAgent:
         # --- Parameter Algoritma ---
         if benchmark_mode:
             # Reduced parameters for faster benchmarking
-            self.mcts_iterations = 800
-            self.mcts_sim_depth = 50
+            self.mcts_iterations = 200
+            self.mcts_sim_depth = 5
             self.alphabeta_max_depth = 4
             self.minimax_max_depth = 3
         else:
             # Full parameters for normal play
             self.mcts_iterations = 200
-            self.mcts_sim_depth = 20
-            self.alphabeta_max_depth = 6
+            self.mcts_sim_depth = 5
+            self.alphabeta_max_depth = 5
             self.minimax_max_depth = 4
 
         # Do not instantiate all searches up-front; create only the selected one.
@@ -150,6 +150,11 @@ class PlayerAgent:
                 best_action = random.choice(legal_actions)
             else:
                 best_action = self.env.player_pos
+
+        # Benchmark mode: return immediately without extra metadata
+        if self.benchmark_mode:
+            return best_action
+
         # finalize thinking time
         end_time = time.time()
         metadata["thinking_time"] = end_time - start_time

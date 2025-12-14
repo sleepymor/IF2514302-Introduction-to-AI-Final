@@ -101,7 +101,7 @@ def main():
     pygame.init()
 
     # Setup Environment (seed can be None to randomize)
-    env = TacticalEnvironment(width=30, height=15, seed=42, num_walls=75, num_traps=10)
+    env = TacticalEnvironment(width=30, height=15, seed=8, num_walls=125, num_traps=20)
     random.seed(None)
 
     # Screen setup
@@ -115,7 +115,7 @@ def main():
     # Agents (we keep objects here for config, but worker will reconstruct env and agent)
     playerAgent = PlayerAgent(
         env,
-        algorithm="ALPHABETA",
+        algorithm="Alphabeta",
     )
     enemyAgent = EnemyAgent(env)
 

@@ -1,5 +1,3 @@
-import random
-
 from algorithm.alphabeta.alphabetanode import AlphaBetaNode
 from utils.logger import Logger
 
