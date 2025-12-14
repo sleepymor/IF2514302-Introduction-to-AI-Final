@@ -1,5 +1,3 @@
-import math
-import random
 from environment.environment import TacticalEnvironment
 
 class MinimaxNode:

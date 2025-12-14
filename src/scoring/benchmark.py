@@ -38,10 +38,10 @@ class OptimizedTestRunner(TestRunner):
 
     def _reduce_algorithm_params(self):
         """Reduce algorithm parameters for faster benchmarking."""
-        self.config.mcts_iterations = 15000
-        self.config.mcts_sim_depth = 5000
-        self.config.alphabeta_depth = 5000
-        self.config.minimax_depth = 5000
+        self.config.mcts_iterations = 200
+        self.config.mcts_sim_depth = 6
+        self.config.alphabeta_depth = 4
+        self.config.minimax_depth = 4
 
 
 def run_single_game_worker(args):
