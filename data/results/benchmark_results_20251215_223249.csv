@@ -1,4 +1,0 @@
-Algorithm,Total Episodes,Goal Reached,Goal Rate (%),Hit Trap,Trap Rate (%),Caught by Enemy,Caught Rate (%),Win Rate (%)
-MCTS,10,9,90.0,0,0.0,1,10.0,90.0
-ALPHABETA,10,10,100.0,0,0.0,0,0.0,100.0
-MINIMAX,10,10,100.0,0,0.0,0,0.0,100.0

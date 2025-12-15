@@ -60,7 +60,9 @@ def create_evaluation_config() -> EvaluationConfig:
     GRID_HEIGHT = 15  # Match benchmark.py for fair comparison
     NUM_WALLS = 125  # Match benchmark.py for fair comparison
     NUM_TRAPS = 20  # Match benchmark.py for fair comparison
-    ENVIRONMENT_SEED = 32
+    ENVIRONMENT_SEED = (
+        None  # None = random seed each episode, or set fixed seed (e.g., 32)
+    )
     PLAYER_ALGORITHM = "MCTS"  # "MCTS", "ALPHABETA", or "MINIMAX"
     NUM_EPISODES = 15
     PROGRESS_INTERVAL = 5
@@ -86,35 +88,43 @@ def create_evaluation_config() -> EvaluationConfig:
 # =============================================================================
 
 
-def _run_episode_worker(args: Tuple[EvaluationConfig]) -> str:
+def _run_episode_worker(args: Tuple[EvaluationConfig, int]) -> str:
     """Worker function for multiprocessing pool.
 
     Args:
-        args: Tuple of (config,)
+        args: Tuple of (config, episode_index)
 
     Returns:
         Terminal reason: "goal", "trap", or "caught".
     """
-    config = args[0]
-    return run_single_episode(config)
+    config, episode_index = args
+    return run_single_episode(config, episode_index)
 
 
-def run_single_episode(config: EvaluationConfig) -> str:
+def run_single_episode(config: EvaluationConfig, episode_index: int = 0) -> str:
     """Execute single episode and return terminal reason.
 
     Args:
         config: EvaluationConfig with game parameters.
+        episode_index: Index of episode (used for seed generation if random mode).
 
     Returns:
         Terminal reason: "goal", "trap", or "caught".
     """
+    # Determine seed: use fixed seed or generate random seed per episode
+    seed = (
+        config.environment_seed
+        if config.environment_seed is not None
+        else episode_index
+    )
+
     # Create environment and agents
     env = TacticalEnvironment(
         width=config.grid_width,
         height=config.grid_height,
         num_walls=config.num_walls,
         num_traps=config.num_traps,
-        seed=config.environment_seed,
+        seed=seed,
     )
     player_agent = PlayerAgent(
         env, algorithm=config.player_algorithm, benchmark_mode=True
@@ -236,11 +246,19 @@ def run_evaluation(config: EvaluationConfig) -> EvaluationResults:
     """
     results = EvaluationResults()
 
-    print(f"Starting evaluation: {config.num_episodes} episodes")
+    seed_mode = (
+        "random"
+        if config.environment_seed is None
+        else f"fixed (seed={config.environment_seed})"
+    )
+    print(
+        f"Starting evaluation: {config.num_episodes} episodes of {config.player_algorithm}"
+    )
+    print(f"Seed mode: {seed_mode}")
     print(f"Using {config.num_processes} parallel processes...\n")
 
-    # Create list of work items (one per episode)
-    work_items = [(config,) for _ in range(config.num_episodes)]
+    # Create list of work items with episode indices
+    work_items = [(config, i) for i in range(config.num_episodes)]
 
     # Run all episodes in parallel using multiprocessing pool
     with Pool(processes=config.num_processes) as pool:
