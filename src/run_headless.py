@@ -57,7 +57,7 @@ def create_evaluation_config() -> EvaluationConfig:
     NUM_TRAPS = 20  # Match benchmark.py for fair comparison
     ENVIRONMENT_SEED = 32
     PLAYER_ALGORITHM = "MCTS"  # "MCTS", "ALPHABETA", or "MINIMAX"
-    NUM_EPISODES = 10
+    NUM_EPISODES = 1000
     PROGRESS_INTERVAL = 5
     # =========================================================================
 
