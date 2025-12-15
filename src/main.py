@@ -90,7 +90,7 @@ def main():
     pygame.init()
 
     # Setup Environment (seed can be None to randomize)
-    env = TacticalEnvironment(width=30, height=15, seed=8, num_walls=125, num_traps=20)
+    env = TacticalEnvironment(width=30, height=15, seed=3, num_walls=150, num_traps=20)
     random.seed(None)
 
     # Screen setup
@@ -102,7 +102,7 @@ def main():
     log = Logger("MainGame")
 
     # Agents (we keep objects here for config, but worker will reconstruct env and agent)
-    playerAgent = PlayerAgent(env, algorithm="Alphabeta",)
+    playerAgent = PlayerAgent(env, algorithm="MCTS",)
     enemyAgent = EnemyAgent(env)
 
     # Multiprocessing pool (create once)
