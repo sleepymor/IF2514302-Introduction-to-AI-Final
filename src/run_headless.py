@@ -3,15 +3,19 @@
 Runs episodic evaluations of player and enemy agents in TacticalEnvironment,
 collecting outcome statistics for performance analysis.
 
+Uses multiprocessing to run episodes in parallel for faster evaluation.
+
 Architecture:
 - Configuration parameters at module level for testability
-- Episode runner isolated from evaluation logic
+- Episode runner isolated for multiprocessing
 - Results aggregator handles statistics
 """
 
 import logging
+import os
 from dataclasses import dataclass, field
-from typing import Dict
+from multiprocessing import Pool
+from typing import Dict, Tuple
 
 from tqdm import tqdm
 
@@ -40,6 +44,7 @@ class EvaluationConfig:
     player_algorithm: str
     num_episodes: int
     progress_interval: int
+    num_processes: int = 4  # Number of parallel processes
 
 
 def create_evaluation_config() -> EvaluationConfig:
@@ -57,8 +62,10 @@ def create_evaluation_config() -> EvaluationConfig:
     NUM_TRAPS = 20  # Match benchmark.py for fair comparison
     ENVIRONMENT_SEED = 32
     PLAYER_ALGORITHM = "MCTS"  # "MCTS", "ALPHABETA", or "MINIMAX"
-    NUM_EPISODES = 1000
+    NUM_EPISODES = 15
     PROGRESS_INTERVAL = 5
+    # Use all available CPU cores (or limit with os.cpu_count())
+    NUM_PROCESSES = min(os.cpu_count() or 4, 8)
     # =========================================================================
 
     return EvaluationConfig(
@@ -70,12 +77,26 @@ def create_evaluation_config() -> EvaluationConfig:
         player_algorithm=PLAYER_ALGORITHM,
         num_episodes=NUM_EPISODES,
         progress_interval=PROGRESS_INTERVAL,
+        num_processes=NUM_PROCESSES,
     )
 
 
 # =============================================================================
-# EPISODE RUNNER - Single game execution
+# EPISODE RUNNER - Single game execution (for multiprocessing)
 # =============================================================================
+
+
+def _run_episode_worker(args: Tuple[EvaluationConfig]) -> str:
+    """Worker function for multiprocessing pool.
+
+    Args:
+        args: Tuple of (config,)
+
+    Returns:
+        Terminal reason: "goal", "trap", or "caught".
+    """
+    config = args[0]
+    return run_single_episode(config)
 
 
 def run_single_episode(config: EvaluationConfig) -> str:
@@ -205,7 +226,7 @@ def display_results_summary(
 
 
 def run_evaluation(config: EvaluationConfig) -> EvaluationResults:
-    """Run complete evaluation suite.
+    """Run complete evaluation suite using parallel processing.
 
     Args:
         config: EvaluationConfig with evaluation parameters.
@@ -215,16 +236,24 @@ def run_evaluation(config: EvaluationConfig) -> EvaluationResults:
     """
     results = EvaluationResults()
 
-    print(f"Starting evaluation: {config.num_episodes} episodes...\n")
+    print(f"Starting evaluation: {config.num_episodes} episodes")
+    print(f"Using {config.num_processes} parallel processes...\n")
 
-    for _ in tqdm(
-        range(config.num_episodes),
-        desc="Evaluation Progress",
-        unit="episode",
-    ):
-        # Run episode and record outcome
-        outcome = run_single_episode(config)
-        results.record_outcome(outcome)
+    # Create list of work items (one per episode)
+    work_items = [(config,) for _ in range(config.num_episodes)]
+
+    # Run all episodes in parallel using multiprocessing pool
+    with Pool(processes=config.num_processes) as pool:
+        outcomes = tqdm(
+            pool.imap_unordered(_run_episode_worker, work_items),
+            total=config.num_episodes,
+            desc="Evaluation Progress",
+            unit="episode",
+        )
+
+        # Collect results
+        for outcome in outcomes:
+            results.record_outcome(outcome)
 
     return results
 
