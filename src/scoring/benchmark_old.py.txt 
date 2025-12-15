@@ -1,0 +1,945 @@
+"""Benchmark runner for AI algorithm evaluation.
+
+Evaluates multiple AI algorithms on the same environment and seed,
+collecting performance metrics and exporting results to multiple formats.
+
+Uses multiprocessing to run episodes in parallel for faster evaluation.
+
+Modular Architecture:
+- benchmark_data: Configuration and results data structures
+- episode_runner: Episode execution for multiprocessing
+- results_displayer: Console output formatting
+- csv_exporter: CSV export (aggregate and per-seed)
+- excel_exporter: Excel export (multi-sheet)
+- benchmark: Main orchestration and execution
+"""
+
+import logging
+import os
+import sys
+from dataclasses import dataclass
+from multiprocessing import Pool
+from pathlib import Path
+
+from tqdm import tqdm
+
+# Import modular components
+from benchmark_data import BenchmarkConfig, BenchmarkResults
+from csv_exporter import CSVExporter
+from episode_runner import EpisodeRunner
+from excel_exporter import ExcelExporter
+from results_displayer import ResultsDisplayer
+
+logging.disable(logging.CRITICAL)
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# =============================================================================
+# SECTION 1: CONFIGURATION
+# =============================================================================
+
+
+@dataclass(frozen=True)
+class BenchmarkConfig:
+    """Immutable configuration for benchmark evaluation.
+
+    Attributes:
+        grid_width: Map width in cells
+        grid_height: Map height in cells
+        num_walls: Number of wall obstacles
+        num_traps: Number of trap obstacles
+        environment_seeds: List of seeds to test for environment variation
+        algorithms: List of algorithm names to evaluate
+        episodes_per_seed: Number of episodes per seed per algorithm
+        max_moves_per_episode: Max moves before auto-terminating episode
+        num_processes: Number of parallel CPU processes
+    """
+
+    grid_width: int
+    grid_height: int
+    num_walls: int
+    num_traps: int
+    environment_seeds: List[int]
+    algorithms: List[str]
+    episodes_per_seed: int
+    max_moves_per_episode: int = 300
+    num_processes: int = 4
+
+
+def create_benchmark_config() -> BenchmarkConfig:
+    """Create benchmark configuration from testable parameters.
+
+    MODIFY these parameters to change evaluation scenarios:
+    - ENVIRONMENT_SEEDS: List of seeds for environment variation
+    - EPISODES_PER_SEED: Episodes per seed (more = more reliable but slower)
+    - ALGORITHMS: Which algorithms to compare
+    - Grid and obstacle parameters for map difficulty
+
+    Returns:
+        BenchmarkConfig with all benchmark parameters.
+    """
+    # =========================================================================
+    # TESTABLE PARAMETERS
+    # =========================================================================
+    GRID_WIDTH = 30
+    GRID_HEIGHT = 15
+    NUM_WALLS = 125
+    NUM_TRAPS = 20
+    ENVIRONMENT_SEEDS = [1, 2]
+    ALGORITHMS = ["MCTS", "ALPHABETA", "MINIMAX"]
+    EPISODES_PER_SEED = 3
+    MAX_MOVES = 300
+    NUM_PROCESSES = min(os.cpu_count() or 6, 8)
+    # =========================================================================
+
+    return BenchmarkConfig(
+        grid_width=GRID_WIDTH,
+        grid_height=GRID_HEIGHT,
+        num_walls=NUM_WALLS,
+        num_traps=NUM_TRAPS,
+        environment_seeds=ENVIRONMENT_SEEDS,
+        algorithms=ALGORITHMS,
+        episodes_per_seed=EPISODES_PER_SEED,
+        max_moves_per_episode=MAX_MOVES,
+        num_processes=NUM_PROCESSES,
+    )
+
+
+# =============================================================================
+# SECTION 2: EPISODE EXECUTION
+# =============================================================================
+
+
+class EpisodeRunner:
+    """Executes single episodes with specified algorithm and environment.
+
+    Isolated class for clean multiprocessing support.
+    Each episode:
+    1. Creates environment with specified seed
+    2. Initializes player and enemy agents
+    3. Runs game loop until terminal or max moves
+    4. Returns outcome and move count
+    """
+
+    @staticmethod
+    def run_single_episode(
+        config: BenchmarkConfig, algorithm: str, seed: int, episode_index: int = 0
+    ) -> Tuple[str, int]:
+        """Execute single episode with specified algorithm and seed.
+
+        Args:
+            config: BenchmarkConfig with game parameters
+            algorithm: Algorithm choice ("MCTS", "ALPHABETA", "MINIMAX")
+            seed: Random seed for reproducible environments
+            episode_index: Episode number for tracking
+
+        Returns:
+            Tuple of (outcome, move_count) where:
+            - outcome: "goal", "trap", "caught", or "timeout"
+            - move_count: Number of moves taken
+        """
+        # Create environment
+        env = TacticalEnvironment(
+            width=config.grid_width,
+            height=config.grid_height,
+            num_walls=config.num_walls,
+            num_traps=config.num_traps,
+            seed=seed,
+        )
+        player_agent = PlayerAgent(env, algorithm=algorithm, benchmark_mode=True)
+        enemy_agent = EnemyAgent(env)
+
+        # Run game loop
+        move_count = 0
+        while True:
+            # Check move limit
+            if move_count >= config.max_moves_per_episode:
+                return "timeout", move_count
+
+            # Get actions
+            if env.turn == "player":
+                action = EpisodeRunner._extract_action(player_agent.action())
+            else:
+                action = EpisodeRunner._extract_action(enemy_agent.action())
+
+            # Step environment
+            is_terminal, reason = env.step(action, simulate=True)
+            move_count += 1
+
+            if is_terminal:
+                return reason, move_count
+
+    @staticmethod
+    def _extract_action(result):
+        """Extract action from result (handles both tuple and plain formats).
+
+        Args:
+            result: Either plain action or (action, metadata) tuple
+
+        Returns:
+            Extracted action value
+        """
+        if (
+            isinstance(result, tuple)
+            and len(result) == 2
+            and isinstance(result[1], dict)
+        ):
+            return result[0]
+        return result
+
+    @staticmethod
+    def worker(
+        args: Tuple[BenchmarkConfig, str, int, int],
+    ) -> Tuple[str, int, int, int]:
+        """Multiprocessing worker function.
+
+        Args:
+            args: Tuple of (config, algorithm, seed, episode_index)
+
+        Returns:
+            Tuple of (outcome, seed, episode_index, move_count)
+        """
+        config, algorithm, seed, episode_index = args
+        outcome, move_count = EpisodeRunner.run_single_episode(
+            config, algorithm, seed, episode_index
+        )
+        return outcome, seed, episode_index, move_count
+
+
+# =============================================================================
+# SECTION 3: RESULTS TRACKING
+# =============================================================================
+
+
+@dataclass
+class BenchmarkResults:
+    """Container for episode results and statistics.
+
+    Tracks outcomes at three levels:
+    1. Aggregate: Total counts across all episodes
+    2. Per-seed: Breakdown by environment seed
+    3. Episode details: Individual episode information
+
+    Attributes:
+        outcomes: Aggregate outcome counts
+        outcomes_by_seed: Per-seed outcome breakdown
+        episode_details: Individual episode records with move counts
+    """
+
+    outcomes: Dict[str, int] = field(
+        default_factory=lambda: {"goal": 0, "trap": 0, "caught": 0, "timeout": 0}
+    )
+    outcomes_by_seed: Dict[int, Dict[str, int]] = field(default_factory=dict)
+    episode_details: List[Dict] = field(default_factory=list)
+
+    def record_outcome(
+        self, reason: str, seed: int = None, episode: int = None, move_count: int = 0
+    ) -> None:
+        """Record an episode outcome.
+
+        Updates aggregate counts, per-seed counts, and detailed records.
+
+        Args:
+            reason: Terminal reason ("goal", "trap", "caught", "timeout")
+            seed: Environment seed for this episode
+            episode: Episode index for tracking
+            move_count: Number of moves in this episode
+        """
+        # Update aggregate counts
+        self.outcomes[reason] = self.outcomes.get(reason, 0) + 1
+
+        # Update per-seed counts
+        if seed is not None:
+            if seed not in self.outcomes_by_seed:
+                self.outcomes_by_seed[seed] = {
+                    "goal": 0,
+                    "trap": 0,
+                    "caught": 0,
+                    "timeout": 0,
+                }
+            self.outcomes_by_seed[seed][reason] = (
+                self.outcomes_by_seed[seed].get(reason, 0) + 1
+            )
+
+        # Record episode-level details
+        if seed is not None and episode is not None:
+            self.episode_details.append(
+                {
+                    "seed": seed,
+                    "episode": episode,
+                    "outcome": reason,
+                    "moves": move_count,
+                }
+            )
+
+    def get_win_rate(self, total_episodes: int) -> float:
+        """Calculate win rate (goals reached / total episodes).
+
+        Args:
+            total_episodes: Total number of episodes
+
+        Returns:
+            Win rate as decimal (0.0 to 1.0)
+        """
+        return self.outcomes["goal"] / total_episodes if total_episodes > 0 else 0.0
+
+    def get_average_moves(self) -> float:
+        """Calculate average moves across all episodes.
+
+        Returns:
+            Average move count per episode
+        """
+        if not self.episode_details:
+            return 0.0
+        total_moves = sum(ep["moves"] for ep in self.episode_details)
+        return total_moves / len(self.episode_details)
+
+    def get_seed_average_moves(self, seed: int) -> float:
+        """Calculate average moves for specific seed.
+
+        Args:
+            seed: Environment seed
+
+        Returns:
+            Average move count for this seed's episodes
+        """
+        seed_episodes = [ep for ep in self.episode_details if ep["seed"] == seed]
+        if not seed_episodes:
+            return 0.0
+        total_moves = sum(ep["moves"] for ep in seed_episodes)
+        return total_moves / len(seed_episodes)
+
+
+# =============================================================================
+# SECTION 4: RESULTS DISPLAY
+# =============================================================================
+
+
+class ResultsDisplayer:
+    """Formats and displays benchmark results in console.
+
+    Provides human-readable summary of algorithm performance.
+    """
+
+    @staticmethod
+    def display_summary(
+        config: BenchmarkConfig, results: Dict[str, BenchmarkResults]
+    ) -> None:
+        """Display formatted results summary.
+
+        Args:
+            config: BenchmarkConfig used for evaluation
+            results: Algorithm name -> BenchmarkResults mapping
+        """
+        total_episodes = len(config.environment_seeds) * config.episodes_per_seed
+
+        print("\n" + "=" * 70)
+        print("BENCHMARK RESULTS SUMMARY")
+        print("=" * 70)
+        print(f"Total Episodes per Algorithm: {total_episodes}")
+        print(
+            f"  ({len(config.environment_seeds)} seeds × {config.episodes_per_seed} episodes)"
+        )
+        print(f"Seeds Tested: {config.environment_seeds}")
+        print(f"Grid Size: {config.grid_width}x{config.grid_height}\n")
+
+        for algo in config.algorithms:
+            algo_results = results[algo]
+            win_rate = algo_results.get_win_rate(total_episodes)
+            avg_moves = algo_results.get_average_moves()
+
+            print(f"\n{algo}:")
+            print(
+                f"  Goal Reached:  {algo_results.outcomes.get('goal', 0):>3}  ({algo_results.outcomes.get('goal', 0)/total_episodes:>5.1%})"
+            )
+            print(
+                f"  Hit Trap:      {algo_results.outcomes.get('trap', 0):>3}  ({algo_results.outcomes.get('trap', 0)/total_episodes:>5.1%})"
+            )
+            print(
+                f"  Caught:        {algo_results.outcomes.get('caught', 0):>3}  ({algo_results.outcomes.get('caught', 0)/total_episodes:>5.1%})"
+            )
+            print(
+                f"  Timeout:       {algo_results.outcomes.get('timeout', 0):>3}  ({algo_results.outcomes.get('timeout', 0)/total_episodes:>5.1%})"
+            )
+            print(f"  Win Rate:      {win_rate:>5.1%}")
+            print(f"  Avg Moves:     {avg_moves:>5.1f}\n")
+
+        print("=" * 70 + "\n")
+
+
+# =============================================================================
+# SECTION 5: RESULTS EXPORT
+# =============================================================================
+
+
+class ResultsExporter:
+    """Exports benchmark results to multiple formats.
+
+    Supports CSV and Excel export with multiple sheets for comprehensive analysis.
+    """
+
+    OUTPUT_DIR = None  # Lazily initialized
+
+    @classmethod
+    def _ensure_output_dir(cls) -> Path:
+        """Ensure output directory exists.
+
+        Returns:
+            Path to output directory
+        """
+        if cls.OUTPUT_DIR is None:
+            cls.OUTPUT_DIR = Path(__file__).parent.parent.parent / "data" / "results"
+            cls.OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        return cls.OUTPUT_DIR
+
+    @classmethod
+    def export_all(
+        cls, config: BenchmarkConfig, results: Dict[str, BenchmarkResults]
+    ) -> None:
+        """Export results to all available formats.
+
+        Args:
+            config: BenchmarkConfig used for evaluation
+            results: Algorithm name -> BenchmarkResults mapping
+        """
+        cls.export_to_csv(config, results)
+        cls.export_detailed_per_seed_csv(config, results)
+        cls.export_to_excel_multi_sheet(config, results)
+
+    @classmethod
+    def export_to_csv(
+        cls, config: BenchmarkConfig, results: Dict[str, BenchmarkResults]
+    ) -> None:
+        """Export aggregate results to CSV.
+
+        Args:
+            config: BenchmarkConfig used for evaluation
+            results: Algorithm name -> BenchmarkResults mapping
+        """
+        output_dir = cls._ensure_output_dir()
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filepath = output_dir / f"benchmark_results_{timestamp}.csv"
+
+        print("[EXPORTING] Writing results to CSV...")
+
+        total_episodes = len(config.environment_seeds) * config.episodes_per_seed
+
+        with open(filepath, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+
+            # Header
+            writer.writerow(
+                [
+                    "Algorithm",
+                    "Total Episodes",
+                    "Seeds Tested",
+                    "Episodes per Seed",
+                    "Max Moves",
+                    "Goal Reached",
+                    "Goal Rate (%)",
+                    "Hit Trap",
+                    "Trap Rate (%)",
+                    "Caught by Enemy",
+                    "Caught Rate (%)",
+                    "Timeout",
+                    "Timeout Rate (%)",
+                    "Win Rate (%)",
+                    "Avg Moves",
+                ]
+            )
+
+            # Data rows
+            for algo in config.algorithms:
+                algo_results = results[algo]
+                win_rate = algo_results.get_win_rate(total_episodes)
+                avg_moves = algo_results.get_average_moves()
+
+                writer.writerow(
+                    [
+                        algo,
+                        total_episodes,
+                        len(config.environment_seeds),
+                        config.episodes_per_seed,
+                        config.max_moves_per_episode,
+                        algo_results.outcomes.get("goal", 0),
+                        f"{algo_results.outcomes.get('goal', 0)/total_episodes*100:.1f}",
+                        algo_results.outcomes.get("trap", 0),
+                        f"{algo_results.outcomes.get('trap', 0)/total_episodes*100:.1f}",
+                        algo_results.outcomes.get("caught", 0),
+                        f"{algo_results.outcomes.get('caught', 0)/total_episodes*100:.1f}",
+                        algo_results.outcomes.get("timeout", 0),
+                        f"{algo_results.outcomes.get('timeout', 0)/total_episodes*100:.1f}",
+                        f"{win_rate*100:.1f}",
+                        f"{avg_moves:.1f}",
+                    ]
+                )
+
+        print(f"✓ Results saved to: {filepath}\n")
+
+    @classmethod
+    def export_detailed_per_seed_csv(
+        cls, config: BenchmarkConfig, results: Dict[str, BenchmarkResults]
+    ) -> None:
+        """Export per-seed results to CSV.
+
+        Args:
+            config: BenchmarkConfig used for evaluation
+            results: Algorithm name -> BenchmarkResults mapping
+        """
+        output_dir = cls._ensure_output_dir()
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filepath = output_dir / f"benchmark_detailed_per_seed_{timestamp}.csv"
+
+        print("[EXPORTING] Writing detailed per-seed results to CSV...")
+
+        with open(filepath, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f)
+
+            # Header
+            writer.writerow(
+                [
+                    "Algorithm",
+                    "Seed",
+                    "Episodes",
+                    "Goal Reached",
+                    "Goal Rate (%)",
+                    "Hit Trap",
+                    "Trap Rate (%)",
+                    "Caught",
+                    "Caught Rate (%)",
+                    "Timeout",
+                    "Timeout Rate (%)",
+                    "Win Rate (%)",
+                    "Avg Moves",
+                ]
+            )
+
+            # Data rows
+            for algo in config.algorithms:
+                algo_results = results[algo]
+                for seed in config.environment_seeds:
+                    if seed in algo_results.outcomes_by_seed:
+                        seed_outcomes = algo_results.outcomes_by_seed[seed]
+                        total = config.episodes_per_seed
+                        win_rate = (
+                            seed_outcomes.get("goal", 0) / total * 100
+                            if total > 0
+                            else 0
+                        )
+                        avg_moves = algo_results.get_seed_average_moves(seed)
+
+                        writer.writerow(
+                            [
+                                algo,
+                                seed,
+                                total,
+                                seed_outcomes.get("goal", 0),
+                                f"{seed_outcomes.get('goal', 0)/total*100:.1f}",
+                                seed_outcomes.get("trap", 0),
+                                f"{seed_outcomes.get('trap', 0)/total*100:.1f}",
+                                seed_outcomes.get("caught", 0),
+                                f"{seed_outcomes.get('caught', 0)/total*100:.1f}",
+                                seed_outcomes.get("timeout", 0),
+                                f"{seed_outcomes.get('timeout', 0)/total*100:.1f}",
+                                f"{win_rate:.1f}",
+                                f"{avg_moves:.1f}",
+                            ]
+                        )
+
+        print(f"✓ Detailed per-seed results saved to: {filepath}\n")
+
+    @classmethod
+    def export_to_excel_multi_sheet(
+        cls, config: BenchmarkConfig, results: Dict[str, BenchmarkResults]
+    ) -> None:
+        """Export comprehensive results to Excel with multiple sheets.
+
+        Sheets:
+        1. Summary - Overall results by algorithm with average moves
+        2. Per Seed - Results per algorithm-seed combo with per-seed avg moves
+        3. Episode Details - Individual episode data with move counts
+
+        Args:
+            config: BenchmarkConfig used for evaluation
+            results: Algorithm name -> BenchmarkResults mapping
+        """
+        try:
+            import openpyxl
+            from openpyxl.styles import Font, PatternFill, Alignment
+        except ImportError:
+            print(
+                "[WARNING] openpyxl not installed. Skipping Excel export. "
+                "Install with: pip install openpyxl"
+            )
+            return
+
+        output_dir = cls._ensure_output_dir()
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filepath = output_dir / f"benchmark_results_{timestamp}.xlsx"
+
+        print("[EXPORTING] Writing comprehensive results to Excel...")
+
+        total_episodes = len(config.environment_seeds) * config.episodes_per_seed
+        wb = openpyxl.Workbook()
+        wb.remove(wb.active)
+
+        # Create sheets
+        cls._create_summary_sheet(wb, config, results, total_episodes)
+        cls._create_per_seed_sheet(wb, config, results)
+        cls._create_episode_details_sheet(wb, config, results)
+
+        wb.save(filepath)
+        print(f"✓ Excel workbook saved to: {filepath}\n")
+        print("  Sheets included:")
+        print("    1. Summary - Overall results by algorithm")
+        print("    2. Per Seed - Results for each algorithm-seed combination")
+        print("    3. Episode Details - Seed-by-seed, episode-by-episode results\n")
+
+    @classmethod
+    def _create_summary_sheet(
+        cls,
+        wb,
+        config: BenchmarkConfig,
+        results: Dict[str, BenchmarkResults],
+        total_episodes: int,
+    ) -> None:
+        """Create Summary sheet in workbook.
+
+        Args:
+            wb: openpyxl Workbook
+            config: BenchmarkConfig used for evaluation
+            results: Algorithm name -> BenchmarkResults mapping
+            total_episodes: Total episodes per algorithm
+        """
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+
+        ws = wb.create_sheet("Summary", 0)
+        header_fill = PatternFill(
+            start_color="4472C4", end_color="4472C4", fill_type="solid"
+        )
+        header_font = Font(bold=True, color="FFFFFF")
+
+        headers = [
+            "Algorithm",
+            "Total Episodes",
+            "Seeds Tested",
+            "Episodes per Seed",
+            "Max Moves",
+            "Goal Reached",
+            "Goal Rate (%)",
+            "Hit Trap",
+            "Trap Rate (%)",
+            "Caught by Enemy",
+            "Caught Rate (%)",
+            "Timeout",
+            "Timeout Rate (%)",
+            "Win Rate (%)",
+            "Avg Moves",
+        ]
+
+        # Write headers
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col)
+            cell.value = header
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # Write data
+        for row, algo in enumerate(config.algorithms, 2):
+            algo_results = results[algo]
+            win_rate = algo_results.get_win_rate(total_episodes)
+            avg_moves = algo_results.get_average_moves()
+
+            ws.cell(row=row, column=1).value = algo
+            ws.cell(row=row, column=2).value = total_episodes
+            ws.cell(row=row, column=3).value = len(config.environment_seeds)
+            ws.cell(row=row, column=4).value = config.episodes_per_seed
+            ws.cell(row=row, column=5).value = config.max_moves_per_episode
+            ws.cell(row=row, column=6).value = algo_results.outcomes.get("goal", 0)
+            ws.cell(row=row, column=7).value = (
+                algo_results.outcomes.get("goal", 0) / total_episodes * 100
+            )
+            ws.cell(row=row, column=8).value = algo_results.outcomes.get("trap", 0)
+            ws.cell(row=row, column=9).value = (
+                algo_results.outcomes.get("trap", 0) / total_episodes * 100
+            )
+            ws.cell(row=row, column=10).value = algo_results.outcomes.get("caught", 0)
+            ws.cell(row=row, column=11).value = (
+                algo_results.outcomes.get("caught", 0) / total_episodes * 100
+            )
+            ws.cell(row=row, column=12).value = algo_results.outcomes.get("timeout", 0)
+            ws.cell(row=row, column=13).value = (
+                algo_results.outcomes.get("timeout", 0) / total_episodes * 100
+            )
+            ws.cell(row=row, column=14).value = win_rate * 100
+            ws.cell(row=row, column=15).value = avg_moves
+
+            # Format
+            for col in [7, 9, 11, 13, 14, 15]:
+                ws.cell(row=row, column=col).number_format = "0.0"
+
+        # Column widths
+        for col in range(1, len(headers) + 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 15
+
+    @classmethod
+    def _create_per_seed_sheet(
+        cls, wb, config: BenchmarkConfig, results: Dict[str, BenchmarkResults]
+    ) -> None:
+        """Create Per Seed sheet in workbook.
+
+        Args:
+            wb: openpyxl Workbook
+            config: BenchmarkConfig used for evaluation
+            results: Algorithm name -> BenchmarkResults mapping
+        """
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+
+        ws = wb.create_sheet("Per Seed", 1)
+        header_fill = PatternFill(
+            start_color="4472C4", end_color="4472C4", fill_type="solid"
+        )
+        header_font = Font(bold=True, color="FFFFFF")
+
+        headers = [
+            "Algorithm",
+            "Seed",
+            "Episodes",
+            "Goal Reached",
+            "Goal Rate (%)",
+            "Hit Trap",
+            "Trap Rate (%)",
+            "Caught",
+            "Caught Rate (%)",
+            "Timeout",
+            "Timeout Rate (%)",
+            "Win Rate (%)",
+            "Avg Moves",
+        ]
+
+        # Write headers
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col)
+            cell.value = header
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # Write data
+        row = 2
+        for algo in config.algorithms:
+            algo_results = results[algo]
+            for seed in config.environment_seeds:
+                if seed in algo_results.outcomes_by_seed:
+                    seed_outcomes = algo_results.outcomes_by_seed[seed]
+                    total = config.episodes_per_seed
+                    win_rate = (
+                        seed_outcomes.get("goal", 0) / total * 100 if total > 0 else 0
+                    )
+                    avg_moves = algo_results.get_seed_average_moves(seed)
+
+                    ws.cell(row=row, column=1).value = algo
+                    ws.cell(row=row, column=2).value = seed
+                    ws.cell(row=row, column=3).value = total
+                    ws.cell(row=row, column=4).value = seed_outcomes.get("goal", 0)
+                    ws.cell(row=row, column=5).value = (
+                        seed_outcomes.get("goal", 0) / total * 100 if total > 0 else 0
+                    )
+                    ws.cell(row=row, column=6).value = seed_outcomes.get("trap", 0)
+                    ws.cell(row=row, column=7).value = (
+                        seed_outcomes.get("trap", 0) / total * 100 if total > 0 else 0
+                    )
+                    ws.cell(row=row, column=8).value = seed_outcomes.get("caught", 0)
+                    ws.cell(row=row, column=9).value = (
+                        seed_outcomes.get("caught", 0) / total * 100 if total > 0 else 0
+                    )
+                    ws.cell(row=row, column=10).value = seed_outcomes.get("timeout", 0)
+                    ws.cell(row=row, column=11).value = (
+                        seed_outcomes.get("timeout", 0) / total * 100
+                        if total > 0
+                        else 0
+                    )
+                    ws.cell(row=row, column=12).value = win_rate
+                    ws.cell(row=row, column=13).value = avg_moves
+
+                    # Format
+                    for col in [5, 7, 9, 11, 12, 13]:
+                        ws.cell(row=row, column=col).number_format = "0.0"
+
+                    row += 1
+
+        # Column widths
+        for col in range(1, len(headers) + 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 15
+
+    @classmethod
+    def _create_episode_details_sheet(
+        cls, wb, config: BenchmarkConfig, results: Dict[str, BenchmarkResults]
+    ) -> None:
+        """Create Episode Details sheet in workbook.
+
+        Args:
+            wb: openpyxl Workbook
+            config: BenchmarkConfig used for evaluation
+            results: Algorithm name -> BenchmarkResults mapping
+        """
+        import openpyxl
+        from openpyxl.styles import Font, PatternFill, Alignment
+
+        ws = wb.create_sheet("Episode Details", 2)
+        header_fill = PatternFill(
+            start_color="4472C4", end_color="4472C4", fill_type="solid"
+        )
+        header_font = Font(bold=True, color="FFFFFF")
+
+        headers = ["Algorithm", "Seed", "Episode", "Outcome", "Moves"]
+
+        # Write headers
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col)
+            cell.value = header
+            cell.fill = header_fill
+            cell.font = header_font
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # Write data
+        row = 2
+        for algo in config.algorithms:
+            algo_results = results[algo]
+            sorted_episodes = sorted(
+                algo_results.episode_details, key=lambda x: (x["seed"], x["episode"])
+            )
+            for ep_detail in sorted_episodes:
+                ws.cell(row=row, column=1).value = algo
+                ws.cell(row=row, column=2).value = ep_detail["seed"]
+                ws.cell(row=row, column=3).value = ep_detail["episode"]
+                ws.cell(row=row, column=4).value = ep_detail["outcome"]
+                ws.cell(row=row, column=5).value = ep_detail["moves"]
+                row += 1
+
+        # Column widths
+        for col in range(1, len(headers) + 1):
+            ws.column_dimensions[openpyxl.utils.get_column_letter(col)].width = 15
+
+
+# =============================================================================
+# SECTION 6: BENCHMARK ORCHESTRATION
+# =============================================================================
+
+
+class BenchmarkOrchestrator:
+    """Main orchestrator for complete benchmark execution.
+
+    Coordinates:
+    1. Configuration creation
+    2. Parallel episode execution
+    3. Results aggregation
+    4. Display and export
+    """
+
+    @staticmethod
+    def run(config: BenchmarkConfig) -> Dict[str, BenchmarkResults]:
+        """Execute complete benchmark suite.
+
+        Args:
+            config: BenchmarkConfig with evaluation parameters
+
+        Returns:
+            Algorithm name -> BenchmarkResults mapping
+        """
+        results = {algo: BenchmarkResults() for algo in config.algorithms}
+
+        total_episodes = len(config.environment_seeds) * config.episodes_per_seed
+        print(
+            f"\nStarting benchmark: {len(config.environment_seeds)} seeds × "
+            f"{config.episodes_per_seed} episodes per algorithm"
+        )
+        print(f"Seeds: {config.environment_seeds}")
+        print(f"Total episodes per algorithm: {total_episodes}")
+        print(f"Using {config.num_processes} parallel processes...\n")
+
+        # Run each algorithm
+        for algo in tqdm(config.algorithms, desc="Algorithms", unit="algorithm"):
+            BenchmarkOrchestrator._run_algorithm(config, algo, results)
+
+        return results
+
+    @staticmethod
+    def _run_algorithm(
+        config: BenchmarkConfig, algo: str, results: Dict[str, BenchmarkResults]
+    ) -> None:
+        """Run all episodes for a single algorithm.
+
+        Args:
+            config: BenchmarkConfig with evaluation parameters
+            algo: Algorithm name to evaluate
+            results: Results dictionary to populate
+        """
+        # Prepare work items
+        algo_work = [
+            (config, algo, seed, ep_idx)
+            for seed in config.environment_seeds
+            for ep_idx in range(config.episodes_per_seed)
+        ]
+
+        # Execute in parallel
+        with Pool(processes=config.num_processes) as pool:
+            algo_outcomes = tqdm(
+                pool.imap_unordered(EpisodeRunner.worker, algo_work),
+                total=len(algo_work),
+                desc=f"  {algo}",
+                unit="ep",
+                leave=False,
+            )
+
+            for outcome, seed, episode_idx, move_count in algo_outcomes:
+                results[algo].record_outcome(outcome, seed, episode_idx, move_count)
+
+
+# =============================================================================
+# SECTION 7: MAIN ENTRY POINT
+# =============================================================================
+
+
+def main() -> None:
+    """Execute complete benchmark suite.
+
+    Pipeline:
+    1. Configuration
+    2. Execution
+    3. Display
+    4. Export
+    """
+    print("\n" + "=" * 70)
+    print("TACTICAL AI BENCHMARK SUITE")
+    print("=" * 70 + "\n")
+
+    # Configuration
+    config = create_benchmark_config()
+    total_episodes = len(config.environment_seeds) * config.episodes_per_seed
+
+    print("Configuration:")
+    print(f"  Grid Size: {config.grid_width}x{config.grid_height}")
+    print(f"  Obstacles: Walls={config.num_walls}, Traps={config.num_traps}")
+    print(f"  Seeds to Test: {config.environment_seeds}")
+    print(f"  Episodes per Seed: {config.episodes_per_seed}")
+    print(f"  Max Moves per Episode: {config.max_moves_per_episode}")
+    print(f"  Total Episodes per Algorithm: {total_episodes}")
+    print(f"  Algorithms: {', '.join(config.algorithms)}\n")
+
+    # Execution
+    results = BenchmarkOrchestrator.run(config)
+
+    # Display
+    ResultsDisplayer.display_summary(config, results)
+
+    # Export
+    ResultsExporter.export_all(config, results)
+    print("✓ Benchmark Complete!")
+
+
+if __name__ == "__main__":
+    main()
