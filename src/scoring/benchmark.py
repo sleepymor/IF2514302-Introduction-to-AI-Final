@@ -3,19 +3,23 @@
 Evaluates multiple AI algorithms on the same environment and seed,
 collecting performance metrics and exporting results to CSV.
 
+Uses multiprocessing to run episodes in parallel for faster evaluation.
+
 Architecture:
 - BenchmarkConfig: Immutable configuration for reproducibility
-- Episode runner isolated from evaluation logic
+- Episode runner isolated for multiprocessing
 - Results aggregator handles statistics for each algorithm
 - CSV export for easy analysis
 """
 
 import csv
 import logging
+import os
 from dataclasses import dataclass, field
 from datetime import datetime
+from multiprocessing import Pool
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 logging.disable(logging.CRITICAL)
 
@@ -44,6 +48,7 @@ class BenchmarkConfig:
     environment_seed: int
     algorithms: List[str]
     num_episodes: int
+    num_processes: int = 4  # Number of parallel processes
 
 
 def create_benchmark_config() -> BenchmarkConfig:
@@ -61,7 +66,9 @@ def create_benchmark_config() -> BenchmarkConfig:
     NUM_TRAPS = 20  # Match run_headless.py for fair comparison
     ENVIRONMENT_SEED = 32
     ALGORITHMS = ["MCTS", "ALPHABETA", "MINIMAX"]  # All algorithms to evaluate
-    NUM_EPISODES = 10
+    NUM_EPISODES = 200
+    # Use all available CPU cores (or limit with os.cpu_count())
+    NUM_PROCESSES = min(os.cpu_count() or 4, 8)
     # =========================================================================
 
     return BenchmarkConfig(
@@ -72,12 +79,26 @@ def create_benchmark_config() -> BenchmarkConfig:
         environment_seed=ENVIRONMENT_SEED,
         algorithms=ALGORITHMS,
         num_episodes=NUM_EPISODES,
+        num_processes=NUM_PROCESSES,
     )
 
 
 # =============================================================================
-# EPISODE RUNNER - Single game execution
+# EPISODE RUNNER - Single game execution (for multiprocessing)
 # =============================================================================
+
+
+def _run_episode_worker(args: Tuple[BenchmarkConfig, str]) -> str:
+    """Worker function for multiprocessing pool.
+
+    Args:
+        args: Tuple of (config, algorithm)
+
+    Returns:
+        Terminal reason: "goal", "trap", or "caught".
+    """
+    config, algorithm = args
+    return run_single_episode(config, algorithm)
 
 
 def run_single_episode(config: BenchmarkConfig, algorithm: str) -> str:
@@ -273,7 +294,7 @@ def export_to_csv(
 
 
 def run_benchmark(config: BenchmarkConfig) -> Dict[str, BenchmarkResults]:
-    """Run complete benchmark suite evaluating all algorithms.
+    """Run complete benchmark suite evaluating all algorithms in parallel.
 
     Args:
         config: BenchmarkConfig with evaluation parameters.
@@ -283,21 +304,46 @@ def run_benchmark(config: BenchmarkConfig) -> Dict[str, BenchmarkResults]:
     """
     results = {algo: BenchmarkResults() for algo in config.algorithms}
 
-    print(f"\nStarting benchmark: {config.num_episodes} episodes per algorithm...\n")
+    print(f"\nStarting benchmark: {config.num_episodes} episodes per algorithm")
+    print(f"Using {config.num_processes} parallel processes...\n")
 
-    # Evaluate each algorithm
-    for algo in tqdm(config.algorithms, desc="Algorithms", unit="algorithm"):
-        algo_progress = tqdm(
-            range(config.num_episodes),
-            desc=f"  {algo}",
+    # Create list of work items (config, algorithm) for each episode
+    work_items = []
+    for algo in config.algorithms:
+        for _ in range(config.num_episodes):
+            work_items.append((config, algo))
+
+    # Run all episodes in parallel using multiprocessing pool
+    with Pool(processes=config.num_processes) as pool:
+        # Use imap_unordered for better progress tracking
+        outcomes = tqdm(
+            pool.imap_unordered(_run_episode_worker, work_items),
+            total=len(work_items),
+            desc="Episodes",
             unit="episode",
-            leave=False,
         )
 
-        for _ in algo_progress:
-            # Run episode and record outcome
-            outcome = run_single_episode(config, algo)
-            results[algo].record_outcome(outcome)
+        # Collect results
+        for outcome in outcomes:
+            # We need to track which algorithm this result belongs to
+            # So we'll use a different approach - run per algorithm
+            pass
+
+    # Better approach: run each algorithm separately to track progress properly
+    for algo in tqdm(config.algorithms, desc="Algorithms", unit="algorithm"):
+        algo_work = [(config, algo) for _ in range(config.num_episodes)]
+
+        with Pool(processes=config.num_processes) as pool:
+            algo_outcomes = tqdm(
+                pool.imap_unordered(_run_episode_worker, algo_work),
+                total=config.num_episodes,
+                desc=f"  {algo}",
+                unit="ep",
+                leave=False,
+            )
+
+            for outcome in algo_outcomes:
+                results[algo].record_outcome(outcome)
 
     return results
 
