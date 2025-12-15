@@ -34,6 +34,8 @@ class EvaluationConfig:
 
     grid_width: int
     grid_height: int
+    num_walls: int
+    num_traps: int
     environment_seed: int
     player_algorithm: str
     num_episodes: int
@@ -49,17 +51,21 @@ def create_evaluation_config() -> EvaluationConfig:
     # =========================================================================
     # TESTABLE PARAMETERS - Modify for different evaluation scenarios
     # =========================================================================
-    GRID_WIDTH = 15
-    GRID_HEIGHT = 10
-    ENVIRONMENT_SEED = 8
+    GRID_WIDTH = 30  # Match benchmark.py for fair comparison
+    GRID_HEIGHT = 15  # Match benchmark.py for fair comparison
+    NUM_WALLS = 125  # Match benchmark.py for fair comparison
+    NUM_TRAPS = 20  # Match benchmark.py for fair comparison
+    ENVIRONMENT_SEED = 32
     PLAYER_ALGORITHM = "MCTS"  # "MCTS", "ALPHABETA", or "MINIMAX"
-    NUM_EPISODES = 15
+    NUM_EPISODES = 10
     PROGRESS_INTERVAL = 5
     # =========================================================================
 
     return EvaluationConfig(
         grid_width=GRID_WIDTH,
         grid_height=GRID_HEIGHT,
+        num_walls=NUM_WALLS,
+        num_traps=NUM_TRAPS,
         environment_seed=ENVIRONMENT_SEED,
         player_algorithm=PLAYER_ALGORITHM,
         num_episodes=NUM_EPISODES,
@@ -85,9 +91,13 @@ def run_single_episode(config: EvaluationConfig) -> str:
     env = TacticalEnvironment(
         width=config.grid_width,
         height=config.grid_height,
+        num_walls=config.num_walls,
+        num_traps=config.num_traps,
         seed=config.environment_seed,
     )
-    player_agent = PlayerAgent(env, algorithm=config.player_algorithm)
+    player_agent = PlayerAgent(
+        env, algorithm=config.player_algorithm, benchmark_mode=True
+    )
     enemy_agent = EnemyAgent(env)
 
     # Run game loop until terminal state
@@ -207,7 +217,7 @@ def run_evaluation(config: EvaluationConfig) -> EvaluationResults:
 
     print(f"Starting evaluation: {config.num_episodes} episodes...\n")
 
-    for episode_num in tqdm(
+    for _ in tqdm(
         range(config.num_episodes),
         desc="Evaluation Progress",
         unit="episode",

@@ -59,14 +59,15 @@ def create_game_config() -> GameConfig:
     # =========================================================================
     # TESTABLE PARAMETERS - Modify these to change game behavior
     # =========================================================================
-    ENVIRONMENT_SEED = 8  # Specific seed or None for random
-    PLAYER_ALGORITHM = "MCTS"  # "MCTS", "ALPHABETA", or "MINIMAX"
+    ENVIRONMENT_SEED = 32  # Specific seed or None for random
+    # Change default algorithm here: "MCTS", "ALPHABETA", or "MINIMAX"
+    PLAYER_ALGORITHM = "MCTS"
     GRID_WIDTH = 30
     GRID_HEIGHT = 15
     NUM_WALLS = 125
     NUM_TRAPS = 20
     TILE_SIZE = 40
-    MAX_PROCESSES = 4  # Multiprocessing pool size
+    MAX_PROCESSES = 6  # Multiprocessing pool size
     # =========================================================================
 
     return GameConfig(

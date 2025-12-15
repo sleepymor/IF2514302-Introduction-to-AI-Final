@@ -22,10 +22,10 @@ class AlphaBetaNode:
         Evaluate the current state from the player's perspective.
 
         Returns:
-            float: Evaluation score where:
-                - +inf: Guaranteed win (goal reached)
-                - -inf: Guaranteed loss (caught or trapped)
-                - Otherwise: Unbounded heuristic value
+            float: Evaluation score in range [-1.0, 1.0] where:
+                - 1.0: Guaranteed win (goal reached)
+                - -1.0: Guaranteed loss (caught or trapped)
+                - Otherwise: Heuristic value based on goal proximity and safety
         """
         player_pos = tuple(self.state.player_pos)
         enemy_pos = tuple(self.state.enemy_pos)
@@ -33,39 +33,37 @@ class AlphaBetaNode:
 
         # Terminal states
         if player_pos == goal_pos:
-            return float("inf")
+            return 1.0  # WIN
 
         if player_pos == enemy_pos or player_pos in self.state.traps:
-            return float("-inf")
+            return -1.0  # LOSS
 
         # Non-terminal heuristic evaluation
         cumulative_score = 0.0
 
-        # Goal proximity penalty
+        # Goal proximity BONUS (closer = better) - PRIMARY OBJECTIVE
         manhattan_dist_to_goal = abs(player_pos[0] - goal_pos[0]) + abs(
             player_pos[1] - goal_pos[1]
         )
-        cumulative_score -= manhattan_dist_to_goal * 100
+        # Normalize distance to goal (max distance on 30x15 grid is ~45)
+        max_distance = self.state.width + self.state.height
+        goal_bonus = (max_distance - manhattan_dist_to_goal) / max_distance
+        cumulative_score += goal_bonus * 0.8  # 80% weight on goal proximity
 
-        # Enemy proximity penalty (danger zone)
+        # Enemy proximity penalty (danger zone) - avoid being close to enemy
         manhattan_dist_to_enemy = abs(player_pos[0] - enemy_pos[0]) + abs(
             player_pos[1] - enemy_pos[1]
         )
-        if manhattan_dist_to_enemy <= 3 and manhattan_dist_to_enemy > 0:
-            cumulative_score -= 5000.0 / (manhattan_dist_to_enemy**2)
+        if manhattan_dist_to_enemy <= 5 and manhattan_dist_to_enemy > 0:
+            # Heavy penalty for being too close
+            enemy_penalty = -1.0 / (manhattan_dist_to_enemy + 1.0)
+            cumulative_score += enemy_penalty * 0.2  # 20% weight on enemy avoidance
+        else:
+            # Safe distance bonus
+            cumulative_score += 0.05
 
-        # Mobility bonus
-        available_legal_actions = list(self.get_legal_actions())
-        num_legal_moves = len(available_legal_actions)
-        cumulative_score += num_legal_moves * 10
-
-        # Stochastic noise for tie-breaking
-        stochastic_noise = random.uniform(0.0, 0.5)
-        cumulative_score += stochastic_noise
-
-        # Near-zero stabilization
-        if -0.1 < cumulative_score < 0.1:
-            cumulative_score += 0.3
+        # Clamp to [-1.0, 1.0] range for consistent behavior
+        cumulative_score = max(-1.0, min(1.0, cumulative_score))
 
         return cumulative_score
 
