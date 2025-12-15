@@ -389,6 +389,23 @@ class TacticalEnvironment:
             surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
             surf.fill(ENEMY_MOVE_RANGE_COLOR)
             screen.blit(surf, rect.topleft)
+            
+        # Draw player intent path if provided (list of (x,y) tuples)    
+        p_path = getattr(self, "player_intent_path", None)
+        if p_path:
+            # draw on a transparent surface so alpha works
+            surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+            if len(p_path) >= 2:
+                pts = [((x * TILE_SIZE) + TILE_SIZE // 2, (y * TILE_SIZE) + TILE_SIZE // 2) for x, y in p_path]
+                pygame.draw.lines(surf, (60, 255, 60, 180), False, pts, 4)
+            
+            # draw markers on each path node
+            for x, y in p_path:
+                cx = x * TILE_SIZE + TILE_SIZE // 2
+                cy = y * TILE_SIZE + TILE_SIZE // 2
+                pygame.draw.circle(surf, (80, 255, 80, 200), (cx, cy), TILE_SIZE // 6)
+            
+            screen.blit(surf, (0, 0))
 
         # Draw enemy intent path if provided (list of (x,y) tuples)
         path = getattr(self, "enemy_intent_path", None)

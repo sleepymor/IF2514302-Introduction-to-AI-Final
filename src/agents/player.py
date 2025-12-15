@@ -6,6 +6,7 @@ from algorithm.mcts.mcts import MCTS
 from algorithm.alphabeta.alphabeta import AlphaBetaSearch
 from algorithm.minimax.minimax import MinimaxSearch
 from utils.logger import Logger
+from algorithm.astar.astar import AStar
 
 
 class PlayerAgent:
@@ -40,7 +41,7 @@ class PlayerAgent:
         elif benchmark_mode:
             self.mcts_sim_depth = 5
         else:
-            self.mcts_sim_depth = 5
+            self.mcts_sim_depth = 50
 
         if alphabeta_depth is not None:
             self.alphabeta_max_depth = alphabeta_depth
@@ -184,3 +185,17 @@ class PlayerAgent:
 
         self.log.info(f"Chosen action: {best_action} (meta={metadata})")
         return best_action, metadata
+
+    def peek_path_to_goal(self):
+        """
+        Menghitung jalur A* dari Player ke Goal untuk keperluan visualisasi.
+        """
+        a_star = AStar(env=self.env)
+        start = tuple(self.env.player_pos)
+        goal = tuple(self.env.goal)
+        
+        # Hitung jalur
+        path = a_star.search(start, goal)
+        
+        # Kembalikan list kosong jika tidak ada jalur, atau list tuple (x,y)
+        return [] if path is None else list(path)
