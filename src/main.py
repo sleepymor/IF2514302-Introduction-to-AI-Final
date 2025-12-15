@@ -607,6 +607,11 @@ def main():
                 env.enemy_intent_path = enemy_agent.peek_path()
             except Exception:
                 env.enemy_intent_path = getattr(env, "enemy_intent_path", None)
+                
+            try:
+                env.player_intent_path = player_agent.peek_path_to_goal()
+            except Exception:
+                env.player_intent_path = getattr(env, "player_intent_path", None)
 
             render_frame(env, screen, clock)
 
