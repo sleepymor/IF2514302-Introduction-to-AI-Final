@@ -1,0 +1,4 @@
+Algorithm,Total Episodes,Seeds Tested,Episodes per Seed,Max Moves,Goal Reached,Goal Rate (%),Hit Trap,Trap Rate (%),Caught by Enemy,Caught Rate (%),Timeout,Timeout Rate (%),Win Rate (%),Avg Moves
+MCTS,6,2,3,300,6,100.0,0,0.0,0,0.0,0,0.0,100.0,41.7
+ALPHABETA,6,2,3,300,4,66.7,0,0.0,0,0.0,2,33.3,66.7,131.7
+MINIMAX,6,2,3,300,6,100.0,0,0.0,0,0.0,0,0.0,100.0,37.3
