@@ -12,7 +12,14 @@ class PlayerAgent:
     """Player AI agent that supports multiple search algorithms."""
 
     def __init__(
-        self, env: TacticalEnvironment, algorithm="MCTS", benchmark_mode=False
+        self,
+        env: TacticalEnvironment,
+        algorithm="MCTS",
+        benchmark_mode=False,
+        mcts_iterations=None,
+        mcts_sim_depth=None,
+        alphabeta_depth=None,
+        minimax_depth=None,
     ):
         self.env = env
         self.algorithm_choice = (algorithm or "MCTS").upper()
@@ -20,17 +27,33 @@ class PlayerAgent:
         self.log = Logger("PlayerAgent")
 
         # --- Parameter Algoritma ---
-        if benchmark_mode:
-            # Reduced parameters for faster benchmarking
+        # Use provided parameters, or fall back to defaults based on benchmark_mode
+        if mcts_iterations is not None:
+            self.mcts_iterations = mcts_iterations
+        elif benchmark_mode:
             self.mcts_iterations = 200
+        else:
+            self.mcts_iterations = 200
+
+        if mcts_sim_depth is not None:
+            self.mcts_sim_depth = mcts_sim_depth
+        elif benchmark_mode:
             self.mcts_sim_depth = 5
+        else:
+            self.mcts_sim_depth = 5
+
+        if alphabeta_depth is not None:
+            self.alphabeta_max_depth = alphabeta_depth
+        elif benchmark_mode:
             self.alphabeta_max_depth = 4
+        else:
+            self.alphabeta_max_depth = 5
+
+        if minimax_depth is not None:
+            self.minimax_max_depth = minimax_depth
+        elif benchmark_mode:
             self.minimax_max_depth = 3
         else:
-            # Full parameters for normal play
-            self.mcts_iterations = 200
-            self.mcts_sim_depth = 5
-            self.alphabeta_max_depth = 5
             self.minimax_max_depth = 4
 
         # Do not instantiate all searches up-front; create only the selected one.
