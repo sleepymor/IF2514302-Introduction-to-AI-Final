@@ -168,36 +168,6 @@ class TacticalEnvironment:
         """
         return (x, y) in self.walls
 
-    # def get_move_range(self, pos, move_range=3):
-    #   """
-    #   Calculate all valid tiles within movement range using Manhattan distance.
-
-    #   Args:
-    #       pos: Current position as (x, y) tuple
-    #       move_range: Maximum movement distance (default 3 for player, 2 for enemy)
-
-    #   Returns:
-    #       set: Set of (x, y) tuples representing reachable tiles
-    #   """
-    #   x, y = pos
-    #   tiles = set()
-
-    #   for dx in range(-move_range, move_range + 1):
-    #     for dy in range(-move_range, move_range + 1):
-    #       nx, ny = x + dx, y + dy
-    #       manhattan_dist = abs(dx) + abs(dy)
-
-    #       if self.in_bounds(nx, ny) and manhattan_dist <= move_range and not self.is_blocked(nx, ny):
-    #         tiles.add((nx, ny))
-
-    #       # euclidean_dist = math.dist((0, 0), (dx, dy))
-
-    #       # if self.in_bounds(nx, ny) and euclidean_dist <= move_range and not self.is_blocked(nx, ny):
-    #       #   tiles.add((nx, ny))
-
-    #   tiles.discard(tuple(pos))
-    #   return tiles
-
     def get_move_range(self, pos, move_range=3):
 
         queue = deque([(pos, 0)])
