@@ -1,6 +1,34 @@
 import random
 import math
 
+def carve_path(start, goal, noise=0.4):
+    x, y = start
+    gx, gy = goal
+    path = {(x, y)}
+
+    def manhattan(a, b):
+        return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+    while (x, y) != (gx, gy):
+        moves = []
+
+        for dx, dy in [(1,0), (-1,0), (0,1), (0,-1)]:
+            nx, ny = x + dx, y + dy
+            if manhattan((nx, ny), goal) <= manhattan((x, y), goal):
+                moves.append((dx, dy))
+
+        # --- Add noise ---
+        if random.random() < noise:
+            dx, dy = random.choice([(1,0), (-1,0), (0,1), (0,-1)])
+        else:
+            dx, dy = random.choice(moves)
+
+        x += dx
+        y += dy
+        path.add((x, y))
+
+    return path
+
 
 def generate_environment(width, height, num_walls, num_traps, seed=None):
     """
@@ -70,32 +98,63 @@ def generate_environment(width, height, num_walls, num_traps, seed=None):
 
     grid = [[None for _ in range(width)] for _ in range(height)]
     player_pos = [0, 0]
+    start = tuple(player_pos)
 
-    walls = set()
-    for _ in range(num_walls):
-        x, y = random.randrange(width), random.randrange(height)
-        if (x, y) != tuple(player_pos):
-            walls.add((x, y))
-
-    traps = set()
-    for _ in range(num_traps):
-        x, y = random.randrange(width), random.randrange(height)
-        if (x, y) != tuple(player_pos) and (x, y) not in walls:
-            traps.add((x, y))
-
+    # --- Place Goal ---
     while True:
         gx, gy = random.randrange(width), random.randrange(height)
-        dist = math.dist(player_pos, (gx, gy))
-        if dist > max(width, height) and (gx, gy) not in walls:
+        if math.dist(start, (gx, gy)) > 0.6 * math.hypot(width, height):
             goal = (gx, gy)
             break
 
+    # --- Place Enemy FIRST (FAR FROM PLAYER) ---
+    min_enemy_dist = 0.4 * math.hypot(width, height)
+
     while True:
         ex, ey = random.randrange(width), random.randrange(height)
-        if (ex, ey) not in walls and (ex, ey) != tuple(player_pos) and (ex, ey) != goal:
+        if (
+            (ex, ey) != start
+            and (ex, ey) != goal
+            and math.dist((ex, ey), start) >= min_enemy_dist
+        ):
             enemy_pos = [ex, ey]
             break
 
-    random.seed(None)
 
+    enemy = tuple(enemy_pos)
+
+    # --- Carve Mandatory Paths ---
+    path_player_goal = carve_path(start, goal)
+    path_enemy_player = carve_path(enemy, start)
+    path_enemy_goal = carve_path(enemy, goal)
+
+    protected_path = (
+        path_player_goal
+        | path_enemy_player
+        | path_enemy_goal
+    )
+
+    forbidden_positions = set(protected_path)
+    forbidden_positions.add(start)
+    forbidden_positions.add(goal)
+    forbidden_positions.add(enemy)
+
+    # --- Place Walls ---
+    walls = set()
+    while len(walls) < num_walls:
+        x, y = random.randrange(width), random.randrange(height)
+        if (x, y) not in forbidden_positions:
+            walls.add((x, y))
+
+    # --- Place Traps ---
+    traps = set()
+    while len(traps) < num_traps:
+        x, y = random.randrange(width), random.randrange(height)
+        if (
+            (x, y) not in forbidden_positions
+            and (x, y) not in walls
+        ):
+            traps.add((x, y))
+
+    random.seed(None)
     return grid, player_pos, enemy_pos, goal, walls, traps
