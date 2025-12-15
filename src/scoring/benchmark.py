@@ -86,13 +86,13 @@ def main():
 
     config = ScoringConfig(
         num_seeds=5,
-        tests_per_seed=100,
-        algorithms=["MCTS", "ALPHABETA", "MINIMAX"],
+        tests_per_seed=30,
+        algorithms=["MCTS"],
         grid_width=30,
         grid_height=15,
         num_walls=125,
         num_traps=20,
-        max_turns=300,
+        max_turns=100,
     )
 
     print(f"Configuration:")
