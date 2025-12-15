@@ -1,150 +1,340 @@
-"""
-Optimized benchmark runner with multiprocessing and reduced logging.
-Entry point for running the complete benchmark suite faster.
+"""Benchmark runner for AI algorithm evaluation.
+
+Evaluates multiple AI algorithms on the same environment and seed,
+collecting performance metrics and exporting results to CSV.
+
+Architecture:
+- BenchmarkConfig: Immutable configuration for reproducibility
+- Episode runner isolated from evaluation logic
+- Results aggregator handles statistics for each algorithm
+- CSV export for easy analysis
 """
 
-import sys
-import os
+import csv
 import logging
+from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
-from multiprocessing import Pool
+from typing import Dict, List
 
 logging.disable(logging.CRITICAL)
 
+import sys
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scoring_config import ScoringConfig
-from test_runner import TestRunner, GameResult
-from results_analyzer import ResultsAnalyzer
-from results_exporter import ResultsExporter
-from utils.logger import Logger
-from datetime import datetime
+from agents.enemy import EnemyAgent
+from agents.player import PlayerAgent
+from environment.environment import TacticalEnvironment
+from tqdm import tqdm
 
-try:
-    from tqdm import tqdm
-
-    HAS_TQDM = True
-except ImportError:
-    HAS_TQDM = False
+# =============================================================================
+# CONFIGURATION - Testable parameters
+# =============================================================================
 
 
-class OptimizedTestRunner(TestRunner):
-    """Optimized test runner with faster algorithm parameters."""
+@dataclass(frozen=True)
+class BenchmarkConfig:
+    """Immutable configuration for benchmark evaluation."""
 
-    def __init__(self, config: ScoringConfig, benchmark_mode=True):
-        super().__init__(config, benchmark_mode=benchmark_mode)
-        if benchmark_mode:
-            self._reduce_algorithm_params()
-
-    def _reduce_algorithm_params(self):
-        """Reduce algorithm parameters for faster benchmarking."""
-        self.config.mcts_iterations = 200
-        self.config.mcts_sim_depth = 5
-        self.config.alphabeta_depth = 4
-        self.config.minimax_depth = 3
+    grid_width: int
+    grid_height: int
+    num_walls: int
+    num_traps: int
+    environment_seed: int
+    algorithms: List[str]
+    num_episodes: int
 
 
-def run_single_game_worker(args):
-    """Worker function for multiprocessing."""
-    algorithm, seed, test_num, config = args
-    runner = OptimizedTestRunner(config, benchmark_mode=True)
-    return runner.run_single_game(algorithm, seed, test_num)
+def create_benchmark_config() -> BenchmarkConfig:
+    """Create benchmark configuration from testable parameters.
 
+    Returns:
+        BenchmarkConfig with all benchmark parameters.
+    """
+    # =========================================================================
+    # TESTABLE PARAMETERS - Modify for different evaluation scenarios
+    # =========================================================================
+    GRID_WIDTH = 30  # Match run_headless.py for fair comparison
+    GRID_HEIGHT = 15  # Match run_headless.py for fair comparison
+    NUM_WALLS = 125  # Match run_headless.py for fair comparison
+    NUM_TRAPS = 20  # Match run_headless.py for fair comparison
+    ENVIRONMENT_SEED = 32
+    ALGORITHMS = ["MCTS", "ALPHABETA", "MINIMAX"]  # All algorithms to evaluate
+    NUM_EPISODES = 10
+    # =========================================================================
 
-def print_results_summary(analyzer: ResultsAnalyzer):
-    """Print a nice summary of results."""
-    stats = analyzer.get_stats_by_algorithm()
-
-    print("\n" + "=" * 90)
-    print("BENCHMARK RESULTS SUMMARY")
-    print("=" * 90)
-
-    for algo, stat in sorted(stats.items()):
-        print(f"\n{algo}:")
-        print(f"  Total Tests: {stat['Total Tests']}")
-        print(f"  Win Rate: {stat['Win Rate (%)']}% ({stat['Wins']} wins)")
-        print(
-            f"  Deaths by Trap: {stat['Deaths by Trap']} ({stat['Death by Trap Rate (%)']}%)"
-        )
-        print(
-            f"  Deaths by Enemy: {stat['Deaths by Enemy']} ({stat['Death by Enemy Rate (%)']}%)"
-        )
-        print(f"  Timeouts: {stat['Timeouts']} ({stat['Timeout Rate (%)']}%)")
-        print(f"  Errors: {stat['Errors']}")
-        print(f"  Average Moves to Win: {stat['Average Moves to Win']}")
-        print(f"  Average Turns: {stat['Average Turns']}")
-
-    print("\n" + "=" * 90 + "\n")
-
-
-def main():
-    """Main entry point for optimized benchmarking."""
-
-    print("\n" + "=" * 90)
-    print("TACTICAL AI BENCHMARK (OPTIMIZED)")
-    print("=" * 90 + "\n")
-
-    config = ScoringConfig(
-        num_seeds=5,
-        tests_per_seed=30,
-        algorithms=["MCTS"],
-        grid_width=30,
-        grid_height=15,
-        num_walls=125,
-        num_traps=20,
-        max_turns=100,
+    return BenchmarkConfig(
+        grid_width=GRID_WIDTH,
+        grid_height=GRID_HEIGHT,
+        num_walls=NUM_WALLS,
+        num_traps=NUM_TRAPS,
+        environment_seed=ENVIRONMENT_SEED,
+        algorithms=ALGORITHMS,
+        num_episodes=NUM_EPISODES,
     )
 
-    print(f"Configuration:")
-    print(f"  Algorithms: {', '.join(config.algorithms)}")
-    print(f"  Seeds: {config.num_seeds}")
-    print(f"  Tests per seed: {config.tests_per_seed}")
-    print(f"  Total tests: {config.total_tests}")
-    print(f"  Grid size: {config.grid_width}x{config.grid_height}")
-    print(f"  Max turns per game: {config.max_turns}")
-    print(f"  Mode: OPTIMIZED (No logging, reduced parameters)\n")
 
-    if not HAS_TQDM:
-        print("Note: Install tqdm for progress bars: pip install tqdm\n")
+# =============================================================================
+# EPISODE RUNNER - Single game execution
+# =============================================================================
 
-    work_items = []
-    for algorithm in config.algorithms:
-        for seed in range(config.num_seeds):
-            for test_num in range(config.tests_per_seed):
-                work_items.append((algorithm, seed, test_num, config))
 
-    print(f"[RUNNING] Starting {len(work_items)} tests with multiprocessing...")
+def run_single_episode(config: BenchmarkConfig, algorithm: str) -> str:
+    """Execute single episode with specified algorithm.
 
-    results = []
-    num_processes = 6
+    Args:
+        config: BenchmarkConfig with game parameters.
+        algorithm: Algorithm to use ("MCTS", "ALPHABETA", or "MINIMAX").
 
-    with Pool(processes=num_processes) as pool:
-        iterator = (
-            tqdm(
-                pool.imap_unordered(run_single_game_worker, work_items),
-                total=len(work_items),
-                desc="Progress",
-            )
-            if HAS_TQDM
-            else pool.imap_unordered(run_single_game_worker, work_items)
+    Returns:
+        Terminal reason: "goal", "trap", or "caught".
+    """
+    # Create environment and agents
+    env = TacticalEnvironment(
+        width=config.grid_width,
+        height=config.grid_height,
+        num_walls=config.num_walls,
+        num_traps=config.num_traps,
+        seed=config.environment_seed,
+    )
+    player_agent = PlayerAgent(env, algorithm=algorithm, benchmark_mode=True)
+    enemy_agent = EnemyAgent(env)
+
+    # Run game loop until terminal state
+    while True:
+        # Get action from current player
+        if env.turn == "player":
+            result = player_agent.action()
+            # Handle both (action, metadata) tuple and plain action formats
+            if (
+                isinstance(result, tuple)
+                and len(result) == 2
+                and isinstance(result[1], dict)
+            ):
+                action = result[0]
+            else:
+                action = result
+        else:
+            result = enemy_agent.action()
+            # Handle both (action, metadata) tuple and plain action formats
+            if (
+                isinstance(result, tuple)
+                and len(result) == 2
+                and isinstance(result[1], dict)
+            ):
+                action = result[0]
+            else:
+                action = result
+
+        # Step environment and check for terminal condition
+        is_terminal, reason = env.step(action, simulate=True)
+
+        if is_terminal:
+            return reason
+
+
+# =============================================================================
+# RESULTS AGGREGATION - Statistics collection
+# =============================================================================
+
+
+@dataclass
+class BenchmarkResults:
+    """Container for benchmark statistics."""
+
+    outcomes: Dict[str, int] = field(
+        default_factory=lambda: {"goal": 0, "trap": 0, "caught": 0}
+    )
+
+    def record_outcome(self, reason: str) -> None:
+        """Record episode outcome.
+
+        Args:
+            reason: Terminal reason ("goal", "trap", or "caught").
+        """
+        self.outcomes[reason] += 1
+
+    def get_win_rate(self, total_episodes: int) -> float:
+        """Calculate win rate percentage.
+
+        Args:
+            total_episodes: Total number of episodes evaluated.
+
+        Returns:
+            Win rate as decimal (0.0 to 1.0).
+        """
+        return self.outcomes["goal"] / total_episodes if total_episodes > 0 else 0.0
+
+
+def display_results_summary(
+    config: BenchmarkConfig, results: Dict[str, BenchmarkResults]
+) -> None:
+    """Display benchmark results in formatted summary.
+
+    Args:
+        config: BenchmarkConfig used for evaluation.
+        results: Dictionary mapping algorithm name to BenchmarkResults.
+    """
+    print("\n" + "=" * 70)
+    print("BENCHMARK RESULTS SUMMARY")
+    print("=" * 70)
+    print(f"Total Episodes per Algorithm: {config.num_episodes}")
+    print(f"Environment Seed: {config.environment_seed}")
+    print(f"Grid Size: {config.grid_width}x{config.grid_height}")
+    print()
+
+    for algo in config.algorithms:
+        algo_results = results[algo]
+        total = config.num_episodes
+        win_rate = algo_results.get_win_rate(total)
+
+        print(f"{algo}:")
+        print(
+            f"  Goal Reached:  {algo_results.outcomes['goal']:>3}  ({algo_results.outcomes['goal']/total:>5.1%})"
+        )
+        print(
+            f"  Hit Trap:      {algo_results.outcomes['trap']:>3}  ({algo_results.outcomes['trap']/total:>5.1%})"
+        )
+        print(
+            f"  Caught:        {algo_results.outcomes['caught']:>3}  ({algo_results.outcomes['caught']/total:>5.1%})"
+        )
+        print(f"  Win Rate:      {win_rate:>5.1%}\n")
+
+    print("=" * 70 + "\n")
+
+
+# =============================================================================
+# EXPORT - CSV export functionality
+# =============================================================================
+
+
+def export_to_csv(
+    config: BenchmarkConfig, results: Dict[str, BenchmarkResults]
+) -> None:
+    """Export benchmark results to CSV file.
+
+    Args:
+        config: BenchmarkConfig used for evaluation.
+        results: Dictionary mapping algorithm name to BenchmarkResults.
+    """
+    output_dir = Path(__file__).parent.parent.parent / "data" / "results"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filepath = output_dir / f"benchmark_results_{timestamp}.csv"
+
+    print("[EXPORTING] Writing results to CSV...")
+
+    with open(filepath, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+
+        # Write header
+        writer.writerow(
+            [
+                "Algorithm",
+                "Total Episodes",
+                "Goal Reached",
+                "Goal Rate (%)",
+                "Hit Trap",
+                "Trap Rate (%)",
+                "Caught by Enemy",
+                "Caught Rate (%)",
+                "Win Rate (%)",
+            ]
         )
 
-        for result in iterator:
-            results.append(result)
+        # Write data for each algorithm
+        for algo in config.algorithms:
+            algo_results = results[algo]
+            total = config.num_episodes
+            win_rate = algo_results.get_win_rate(total)
 
-    # Analyze results
-    print("\n[ANALYZING] Processing results...")
-    analyzer = ResultsAnalyzer(results)
-    print_results_summary(analyzer)
+            writer.writerow(
+                [
+                    algo,
+                    total,
+                    algo_results.outcomes["goal"],
+                    f"{algo_results.outcomes['goal']/total*100:.1f}",
+                    algo_results.outcomes["trap"],
+                    f"{algo_results.outcomes['trap']/total*100:.1f}",
+                    algo_results.outcomes["caught"],
+                    f"{algo_results.outcomes['caught']/total*100:.1f}",
+                    f"{win_rate*100:.1f}",
+                ]
+            )
 
-    # Export to Excel
-    print("[EXPORTING] Preparing export...")
-    exporter = ResultsExporter()
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    exporter.export_to_excel(results, f"benchmark_results_{timestamp}.xlsx")
+    print(f"✓ Results saved to: {filepath}\n")
 
-    print(f"✓ Benchmark Complete!")
-    print(f"✓ Results saved to: {exporter.output_dir}")
+
+# =============================================================================
+# BENCHMARK EXECUTION - Main evaluation loop
+# =============================================================================
+
+
+def run_benchmark(config: BenchmarkConfig) -> Dict[str, BenchmarkResults]:
+    """Run complete benchmark suite evaluating all algorithms.
+
+    Args:
+        config: BenchmarkConfig with evaluation parameters.
+
+    Returns:
+        Dictionary mapping algorithm name to BenchmarkResults.
+    """
+    results = {algo: BenchmarkResults() for algo in config.algorithms}
+
+    print(f"\nStarting benchmark: {config.num_episodes} episodes per algorithm...\n")
+
+    # Evaluate each algorithm
+    for algo in tqdm(config.algorithms, desc="Algorithms", unit="algorithm"):
+        algo_progress = tqdm(
+            range(config.num_episodes),
+            desc=f"  {algo}",
+            unit="episode",
+            leave=False,
+        )
+
+        for _ in algo_progress:
+            # Run episode and record outcome
+            outcome = run_single_episode(config, algo)
+            results[algo].record_outcome(outcome)
+
+    return results
+
+
+# =============================================================================
+# MAIN ENTRY POINT - Orchestrates pipeline
+# =============================================================================
+
+
+def main() -> None:
+    """Execute complete benchmark suite.
+
+    Orchestrates configuration, execution, analysis, and export.
+    Each step is isolated for clarity and testability.
+    """
+    print("\n" + "=" * 70)
+    print("TACTICAL AI BENCHMARK SUITE")
+    print("=" * 70 + "\n")
+
+    # Configuration
+    config = create_benchmark_config()
+    print("Configuration:")
+    print(f"  Grid Size: {config.grid_width}x{config.grid_height}")
+    print(f"  Obstacles: Walls={config.num_walls}, Traps={config.num_traps}")
+    print(f"  Environment Seed: {config.environment_seed}")
+    print(f"  Algorithms: {', '.join(config.algorithms)}")
+    print(f"  Episodes per Algorithm: {config.num_episodes}\n")
+
+    # Execution
+    results = run_benchmark(config)
+
+    # Display results
+    display_results_summary(config, results)
+
+    # Export
+    export_to_csv(config, results)
+    print("✓ Benchmark Complete!")
 
 
 if __name__ == "__main__":
