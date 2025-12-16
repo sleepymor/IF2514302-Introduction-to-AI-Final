@@ -41,7 +41,7 @@ class PlayerAgent:
         elif benchmark_mode:
             self.mcts_sim_depth = 5
         else:
-            self.mcts_sim_depth = 50
+            self.mcts_sim_depth = 5
 
         if alphabeta_depth is not None:
             self.alphabeta_max_depth = alphabeta_depth

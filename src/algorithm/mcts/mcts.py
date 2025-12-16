@@ -164,17 +164,9 @@ class MCTS:
         if player_pos in legal_moves:
             return player_pos
 
-        best_move = enemy_pos
-        min_dist = float("inf")
-        random.shuffle(legal_moves)
+        legal_moves.sort(key=lambda m: abs(m[0] - player_pos[0]) + abs(m[1] - player_pos[1]))
 
-        for move in legal_moves:
-            dist = abs(move[0] - player_pos[0]) + abs(move[1] - player_pos[1])
-            if dist < min_dist:
-                min_dist = dist
-                best_move = move
-
-        return best_move
+        return legal_moves[0] if legal_moves else enemy_pos
 
     def rollout_reward(self, state, reason):
         """Calculate reward for rollout."""
@@ -197,7 +189,7 @@ class MCTS:
         )
 
         if dist_enemy <= 2:
-            score *= 0.1
+            return 0.0
         elif dist_enemy <= 3:
             score *= 0.5
 
