@@ -60,7 +60,7 @@ def create_benchmark_config() -> BenchmarkConfig:
     NUM_TRAPS = 20
     ENVIRONMENT_SEEDS = [1, 2]
     ALGORITHMS = ["MCTS", "ALPHABETA", "MINIMAX"]
-    EPISODES_PER_SEED = 3
+    EPISODES_PER_SEED = 30
     MAX_MOVES = 300
     NUM_PROCESSES = min(os.cpu_count() or 6, 8)
     # =========================================================================
