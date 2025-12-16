@@ -4,7 +4,7 @@ environment:
   num_walls: 125
   num_traps: 20
   environment_seed: 42
-  player_algorithms: "MCTS"
+  player_algorithm: "MCTS"
   tile_size: 40
   max_processes: 4
 
