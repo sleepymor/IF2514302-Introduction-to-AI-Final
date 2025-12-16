@@ -75,7 +75,28 @@ class PlayerAgent:
             minimax_depth,
         )
 
-        # Initialize search algorithms (lazy initialization)
+        if mcts_sim_depth is not None:
+            self.mcts_sim_depth = mcts_sim_depth
+        elif benchmark_mode:
+            self.mcts_sim_depth = 5
+        else:
+            self.mcts_sim_depth = 5
+
+        if alphabeta_depth is not None:
+            self.alphabeta_max_depth = alphabeta_depth
+        elif benchmark_mode:
+            self.alphabeta_max_depth = 4
+        else:
+            self.alphabeta_max_depth = 5
+
+        if minimax_depth is not None:
+            self.minimax_max_depth = minimax_depth
+        elif benchmark_mode:
+            self.minimax_max_depth = 3
+        else:
+            self.minimax_max_depth = 4
+
+        # Do not instantiate all searches up-front; create only the selected one.
         self.mcts_search = None
         self.alphabeta_search = None
         self.minimax_search = None

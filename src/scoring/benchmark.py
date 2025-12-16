@@ -68,6 +68,7 @@ def create_benchmark_config() -> BenchmarkConfig:
     EPISODES_PER_SEED = config["benchmark"]["num_episodes"]
     MAX_MOVES = config["benchmark"]["max_moves"]
     NUM_PROCESSES = config["benchmark"]["num_processes"]
+
     # =========================================================================
 
     return BenchmarkConfig(
