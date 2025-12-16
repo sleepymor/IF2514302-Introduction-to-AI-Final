@@ -23,7 +23,7 @@ from agents.enemy import EnemyAgent
 from agents.player import PlayerAgent
 from environment.environment import TacticalEnvironment
 from utils.logger import Logger
-
+from utils.config_loader import load_config
 
 # =============================================================================
 # CONFIGURATION - Immutable for consistency and testability
@@ -59,15 +59,17 @@ def create_game_config() -> GameConfig:
     # =========================================================================
     # TESTABLE PARAMETERS - Modify these to change game behavior
     # =========================================================================
-    ENVIRONMENT_SEED = 32  # Specific seed or None for random
-    # Change default algorithm here: "MCTS", "ALPHABETA", or "MINIMAX"
-    PLAYER_ALGORITHM = "MCTS"
-    GRID_WIDTH = 30
-    GRID_HEIGHT = 15
-    NUM_WALLS = 125
-    NUM_TRAPS = 20
-    TILE_SIZE = 40
-    MAX_PROCESSES = 6  # Multiprocessing pool size
+
+    config = load_config("configs/config.yaml")
+
+    ENVIRONMENT_SEED = config["environment"]["environment_seed"]
+    PLAYER_ALGORITHM = config["environment"]["player_algorithm"]
+    GRID_WIDTH = config["environment"]["grid_width"]
+    GRID_HEIGHT = config["environment"]["grid_height"]
+    NUM_WALLS = config["environment"]["num_walls"]
+    NUM_TRAPS = config["environment"]["num_traps"]
+    TILE_SIZE = config["environment"]["tile_size"]
+    MAX_PROCESSES = config["environment"]["max_processes"]  # Multiprocessing pool size
     # =========================================================================
 
     return GameConfig(
@@ -607,7 +609,7 @@ def main():
                 env.enemy_intent_path = enemy_agent.peek_path()
             except Exception:
                 env.enemy_intent_path = getattr(env, "enemy_intent_path", None)
-                
+
             try:
                 env.player_intent_path = player_agent.peek_path_to_goal()
             except Exception:

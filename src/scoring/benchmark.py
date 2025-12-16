@@ -34,6 +34,8 @@ logging.disable(logging.CRITICAL)
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from utils.config_loader import load_config
+
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
@@ -54,15 +56,19 @@ def create_benchmark_config() -> BenchmarkConfig:
     # =========================================================================
     # TESTABLE PARAMETERS - Modify for different evaluation scenarios
     # =========================================================================
-    GRID_WIDTH = 30
-    GRID_HEIGHT = 15
-    NUM_WALLS = 125
-    NUM_TRAPS = 20
-    ENVIRONMENT_SEEDS = [1, 2]
-    ALGORITHMS = ["MCTS", "ALPHABETA", "MINIMAX"]
-    EPISODES_PER_SEED = 30
-    MAX_MOVES = 300
-    NUM_PROCESSES = min(os.cpu_count() or 6, 8)
+
+    config = load_config("configs/config.yaml")
+
+    GRID_WIDTH = config["benchmark"]["grid_width"]
+    GRID_HEIGHT = config["benchmark"]["grid_height"]
+    NUM_WALLS = config["benchmark"]["num_walls"]
+    NUM_TRAPS = config["benchmark"]["num_traps"]
+    ENVIRONMENT_SEEDS = config["benchmark"]["environment_seed"]
+    ALGORITHMS = config["benchmark"]["player_algorithms"]
+    EPISODES_PER_SEED = config["benchmark"]["num_episodes"]
+    MAX_MOVES = config["benchmark"]["max_moves"]
+    NUM_PROCESSES = config["benchmark"]["num_processes"]
+
     # =========================================================================
 
     return BenchmarkConfig(

@@ -9,7 +9,8 @@ Exports comprehensive results to Excel with multiple sheets:
 from datetime import datetime
 from pathlib import Path
 from typing import Dict
-
+import openpyxl
+from openpyxl.styles import Alignment, Font, PatternFill
 from benchmark_data import BenchmarkConfig, BenchmarkResults
 
 
@@ -40,14 +41,6 @@ class ExcelExporter:
             config: BenchmarkConfig used for evaluation
             results: Algorithm name -> BenchmarkResults mapping
         """
-        try:
-            import openpyxl
-        except ImportError:
-            print(
-                "[WARNING] openpyxl not installed. Skipping Excel export. "
-                "Install with: pip install openpyxl"
-            )
-            return
 
         output_dir = cls._ensure_output_dir()
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -87,8 +80,6 @@ class ExcelExporter:
             results: Algorithm name -> BenchmarkResults mapping
             total_episodes: Total episodes per algorithm
         """
-        import openpyxl
-        from openpyxl.styles import Alignment, Font, PatternFill
 
         ws = wb.create_sheet("Summary", 0)
         header_fill = PatternFill(
@@ -171,8 +162,6 @@ class ExcelExporter:
             config: BenchmarkConfig used for evaluation
             results: Algorithm name -> BenchmarkResults mapping
         """
-        import openpyxl
-        from openpyxl.styles import Alignment, Font, PatternFill
 
         ws = wb.create_sheet("Per Seed", 1)
         header_fill = PatternFill(
@@ -262,8 +251,6 @@ class ExcelExporter:
             config: BenchmarkConfig used for evaluation
             results: Algorithm name -> BenchmarkResults mapping
         """
-        import openpyxl
-        from openpyxl.styles import Alignment, Font, PatternFill
 
         ws = wb.create_sheet("Episode Details", 2)
         header_fill = PatternFill(
