@@ -67,7 +67,9 @@ class TacticalEnvironment:
             pygame.font.SysFont("consolas", 12) if pygame.font.get_init() else None
         )
         # HUD font for better readability
-        self.hud_font = pygame.font.SysFont("consolas", 16) if pygame.font.get_init() else None
+        self.hud_font = (
+            pygame.font.SysFont("consolas", 16) if pygame.font.get_init() else None
+        )
         # HUD visibility toggle (can be toggled from main event loop)
         self.hud_visible = True
         # HUD position and dragging state
@@ -169,36 +171,53 @@ class TacticalEnvironment:
         return (x, y) in self.walls
 
     def get_move_range(self, pos, move_range=3):
+        """Calculate all reachable tiles from a position using flood fill (BFS).
 
-        queue = deque([(pos, 0)])
+        Uses breadth-first search to find all tiles within move_range steps that
+        are not blocked by walls. Walls completely block movement.
+
+        Args:
+            pos: Starting position as list [x, y]
+            move_range: Maximum number of steps to move
+
+        Returns:
+            set: Set of (x, y) tuples representing reachable positions (excluding start)
+        """
+        queue = deque([(tuple(pos), 0)])
         visited = {tuple(pos)}
-
         reachable = set()
 
         while queue:
             (x, y), dist = queue.popleft()
 
-            if dist > move_range:
+            # Add to reachable if not the starting position
+            if (x, y) != tuple(pos):
+                reachable.add((x, y))
+
+            # If we've used all movement points, don't explore further from this tile
+            if dist >= move_range:
                 continue
 
-            reachable.add((x, y))
-
+            # Explore all four cardinal directions
             for dx, dy in [(1, 0), (-1, 0), (0, 1), (0, -1)]:
                 nx, ny = x + dx, y + dy
 
+                # Check bounds
                 if not self.in_bounds(nx, ny):
                     continue
 
+                # Skip if already visited
                 if (nx, ny) in visited:
                     continue
 
+                # WALL BLOCKS - cannot pass through walls
                 if self.is_blocked(nx, ny):
                     continue
 
+                # Mark visited and add to queue with incremented distance
                 visited.add((nx, ny))
                 queue.append(((nx, ny), dist + 1))
 
-        reachable.remove(tuple(pos))  # remove origin if you want
         return reachable
 
     def move_unit(self, pos, target):
@@ -389,22 +408,25 @@ class TacticalEnvironment:
             surf = pygame.Surface((TILE_SIZE, TILE_SIZE), pygame.SRCALPHA)
             surf.fill(ENEMY_MOVE_RANGE_COLOR)
             screen.blit(surf, rect.topleft)
-            
-        # Draw player intent path if provided (list of (x,y) tuples)    
+
+        # Draw player intent path if provided (list of (x,y) tuples)
         p_path = getattr(self, "player_intent_path", None)
         if p_path:
             # draw on a transparent surface so alpha works
             surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
             if len(p_path) >= 2:
-                pts = [((x * TILE_SIZE) + TILE_SIZE // 2, (y * TILE_SIZE) + TILE_SIZE // 2) for x, y in p_path]
+                pts = [
+                    ((x * TILE_SIZE) + TILE_SIZE // 2, (y * TILE_SIZE) + TILE_SIZE // 2)
+                    for x, y in p_path
+                ]
                 pygame.draw.lines(surf, (60, 255, 60, 180), False, pts, 4)
-            
+
             # draw markers on each path node
             for x, y in p_path:
                 cx = x * TILE_SIZE + TILE_SIZE // 2
                 cy = y * TILE_SIZE + TILE_SIZE // 2
                 pygame.draw.circle(surf, (80, 255, 80, 200), (cx, cy), TILE_SIZE // 6)
-            
+
             screen.blit(surf, (0, 0))
 
         # Draw enemy intent path if provided (list of (x,y) tuples)
@@ -413,7 +435,10 @@ class TacticalEnvironment:
             # draw on a transparent surface so alpha works
             surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
             if len(path) >= 2:
-                pts = [((x * TILE_SIZE) + TILE_SIZE // 2, (y * TILE_SIZE) + TILE_SIZE // 2) for x, y in path]
+                pts = [
+                    ((x * TILE_SIZE) + TILE_SIZE // 2, (y * TILE_SIZE) + TILE_SIZE // 2)
+                    for x, y in path
+                ]
                 pygame.draw.lines(surf, (255, 60, 60, 180), False, pts, 4)
             # draw markers on each path node
             for x, y in path:
@@ -483,7 +508,14 @@ class TacticalEnvironment:
             tt = meta.get("thinking_time")
             wp = meta.get("win_probability")
 
-            lines = [f"Algorithm: {alg_name}", f"Turn: {turn}", f"Paused: {paused}", f"Step: {step}", f"FPS: {fps:.1f}", f"EnemyPath: {len(path)}"]
+            lines = [
+                f"Algorithm: {alg_name}",
+                f"Turn: {turn}",
+                f"Paused: {paused}",
+                f"Step: {step}",
+                f"FPS: {fps:.1f}",
+                f"EnemyPath: {len(path)}",
+            ]
             if nv is not None:
                 lines.append(f"Nodes: {nv}")
             if tt is not None:

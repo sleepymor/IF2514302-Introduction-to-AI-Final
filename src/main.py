@@ -61,10 +61,10 @@ def create_game_config() -> GameConfig:
     # =========================================================================
     ENVIRONMENT_SEED = 32  # Specific seed or None for random
     # Change default algorithm here: "MCTS", "ALPHABETA", or "MINIMAX"
-    PLAYER_ALGORITHM = "MCTS"
-    GRID_WIDTH = 30
-    GRID_HEIGHT = 15
-    NUM_WALLS = 125
+    PLAYER_ALGORITHM = "ALPHABETA"
+    GRID_WIDTH = 40
+    GRID_HEIGHT = 20
+    NUM_WALLS = 175
     NUM_TRAPS = 20
     TILE_SIZE = 40
     MAX_PROCESSES = 6  # Multiprocessing pool size
@@ -607,7 +607,7 @@ def main():
                 env.enemy_intent_path = enemy_agent.peek_path()
             except Exception:
                 env.enemy_intent_path = getattr(env, "enemy_intent_path", None)
-                
+
             try:
                 env.player_intent_path = player_agent.peek_path_to_goal()
             except Exception:
