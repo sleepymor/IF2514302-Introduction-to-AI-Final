@@ -1,0 +1,23 @@
+environment:
+  grid_width: 30
+  grid_height: 15
+  num_walls: 125
+  num_traps: 20
+  environment_seed: 42
+  player_algorithms: "MCTS"
+  tile_size: 40
+  max_processes: 4
+
+benchmark:
+  grid_width: 30
+  grid_height: 15
+  num_walls: 125
+  num_episodes: 50
+  num_traps: 20
+  environment_seed: [1, 2, 3, 4, 5]
+  num_processes: 4
+  max_moves: 300
+  player_algorithms:
+    - "MCTS"
+    - "ALPHABETA"
+    - "MINIMAX"
